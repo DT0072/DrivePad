@@ -1,8 +1,16 @@
 package com.drivepad.app.ui
 
 import android.app.Application
+import android.content.ComponentName
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import com.drivepad.app.data.api.RadioBrowserApiClient
 import com.drivepad.app.data.api.RadioStation
 import com.drivepad.app.data.api.WeatherApiClient
@@ -10,8 +18,13 @@ import com.drivepad.app.data.api.WeatherData
 import com.drivepad.app.data.preferences.DrivePreferences
 import com.drivepad.app.data.preferences.ThemeMode
 import com.drivepad.app.data.preferences.dataStore
+import com.drivepad.app.media.ExternalMediaSessionController
+import com.drivepad.app.media.ExternalPlaybackSnapshot
+import com.drivepad.app.media.MediaNotificationListenerService
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -25,6 +38,55 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     private val weatherApi = WeatherApiClient(httpClient)
     private val radioApi = RadioBrowserApiClient(httpClient)
     val preferences = DrivePreferences(application.dataStore)
+
+    private val mediaPackages = mapOf(
+        "spotify" to "com.spotify.music",
+        "ytmusic" to "com.google.android.apps.youtube.music",
+        "huawei" to "com.huawei.music",
+    )
+
+    private var mediaProgressJob: Job? = null
+    private var mediaPositionMs = 0L
+    private var mediaDurationMs = 0L
+    private var mediaPlaybackSpeed = 1f
+    private var mediaPositionUpdatedAt = SystemClock.elapsedRealtime()
+
+    private val externalMediaController = ExternalMediaSessionController(
+        context = application,
+        listenerComponent = ComponentName(
+            application,
+            MediaNotificationListenerService::class.java,
+        ),
+        onSnapshotChanged = ::updateExternalMediaState,
+        onAccessChanged = { _hasMediaControlAccess.value = it },
+    )
+
+    private val radioPlayer = ExoPlayer.Builder(application).build().apply {
+        setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .build(),
+            true,
+        )
+        addListener(object : Player.Listener {
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                _isRadioPlaying.value = playWhenReady
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE) {
+                    _isRadioPlaying.value = false
+                }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                _isRadioPlaying.value = false
+                _radioPlaybackError.value =
+                    error.localizedMessage ?: "Unable to play this station."
+            }
+        })
+    }
 
     // -- Weather State --
     private val _weather = MutableStateFlow<WeatherData?>(null)
@@ -58,6 +120,13 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     private val _activeMediaSource = MutableStateFlow("spotify")
     val activeMediaSource: StateFlow<String> = _activeMediaSource.asStateFlow()
 
+    private val _hasMediaControlAccess = MutableStateFlow(false)
+    val hasMediaControlAccess: StateFlow<Boolean> =
+        _hasMediaControlAccess.asStateFlow()
+
+    private val _mediaVolume = MutableStateFlow(0f)
+    val mediaVolume: StateFlow<Float> = _mediaVolume.asStateFlow()
+
     // -- Radio State --
     private val _radioStations = MutableStateFlow<List<RadioStation>>(emptyList())
     val radioStations: StateFlow<List<RadioStation>> = _radioStations.asStateFlow()
@@ -70,6 +139,9 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isRadioPlaying = MutableStateFlow(false)
     val isRadioPlaying: StateFlow<Boolean> = _isRadioPlaying.asStateFlow()
+
+    private val _radioPlaybackError = MutableStateFlow<String?>(null)
+    val radioPlaybackError: StateFlow<String?> = _radioPlaybackError.asStateFlow()
 
     private val _radioPresets = MutableStateFlow<List<RadioStation?>>(List(6) { null })
     val radioPresets: StateFlow<List<RadioStation?>> = _radioPresets.asStateFlow()
@@ -93,6 +165,7 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     init {
         loadWeather()
         loadRadioStations()
+        externalMediaController.refresh()
     }
 
     // -- Weather --
@@ -118,23 +191,33 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
     // -- Media Controls --
     fun togglePlayPause() {
-        _isPlaying.value = !_isPlaying.value
+        externalMediaController.togglePlayPause()
     }
 
     fun skipNext() {
-        // In production, this would send to active MediaController
+        externalMediaController.skipNext()
     }
 
     fun skipPrevious() {
-        // In production, this would send to active MediaController
+        externalMediaController.skipPrevious()
     }
 
     fun seekTo(progress: Float) {
-        _playbackProgress.value = progress
+        externalMediaController.seekTo(progress)
     }
 
     fun setActiveMediaSource(sourceId: String) {
         _activeMediaSource.value = sourceId
+        externalMediaController.setPreferredPackage(mediaPackages[sourceId])
+    }
+
+    fun setMediaVolume(volume: Float) {
+        _mediaVolume.value = volume.coerceIn(0f, 1f)
+        externalMediaController.setVolume(_mediaVolume.value)
+    }
+
+    fun refreshMediaSession() {
+        externalMediaController.refresh()
     }
 
     fun updateNowPlaying(title: String, artist: String, album: String, albumArt: String) {
@@ -166,7 +249,7 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         if (freq.isNotEmpty()) {
             _currentFrequency.value = freq.toFloatOrNull() ?: _currentFrequency.value
         }
-        _isRadioPlaying.value = true
+        playRadioStation(station)
     }
 
     fun setRadioFrequency(freq: Float) {
@@ -179,13 +262,26 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         if (nearest != null) {
             val nearestFreq = nearest.getDisplayFrequency().toFloatOrNull()
             if (nearestFreq != null && kotlin.math.abs(nearestFreq - freq) < 0.5f) {
+                val stationChanged =
+                    nearest.stationUuid != _currentStation.value?.stationUuid
                 _currentStation.value = nearest
+                if (stationChanged && radioPlayer.playWhenReady) {
+                    playRadioStation(nearest)
+                }
             }
         }
     }
 
     fun toggleRadioPlayPause() {
-        _isRadioPlaying.value = !_isRadioPlaying.value
+        if (radioPlayer.playWhenReady) {
+            radioPlayer.pause()
+        } else {
+            val station = _currentStation.value ?: _radioStations.value.firstOrNull()
+            if (station != null) {
+                _currentStation.value = station
+                playRadioStation(station)
+            }
+        }
     }
 
     fun seekRadioForward() {
@@ -231,6 +327,80 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun playRadioStation(station: RadioStation) {
+        val streamUrl = station.streamUrl
+        if (streamUrl.isBlank()) {
+            _radioPlaybackError.value = "This station does not provide a playable stream."
+            _isRadioPlaying.value = false
+            return
+        }
+
+        _radioPlaybackError.value = null
+        val currentUrl = radioPlayer.currentMediaItem
+            ?.localConfiguration
+            ?.uri
+            ?.toString()
+        if (currentUrl != streamUrl) {
+            radioPlayer.setMediaItem(MediaItem.fromUri(streamUrl))
+            radioPlayer.prepare()
+        }
+        radioPlayer.play()
+        _isRadioPlaying.value = true
+    }
+
+    private fun updateExternalMediaState(snapshot: ExternalPlaybackSnapshot) {
+        _nowPlayingTitle.value = snapshot.title
+        _nowPlayingArtist.value = snapshot.artist
+        _nowPlayingAlbum.value = snapshot.album
+        _isPlaying.value = snapshot.isPlaying
+        _mediaVolume.value = snapshot.volume
+
+        mediaPositionMs = snapshot.positionMs
+        mediaDurationMs = snapshot.durationMs
+        mediaPlaybackSpeed = snapshot.playbackSpeed
+        mediaPositionUpdatedAt = SystemClock.elapsedRealtime()
+        publishMediaProgress(mediaPositionMs)
+
+        mediaPackages.entries
+            .firstOrNull { it.value == snapshot.packageName }
+            ?.let { _activeMediaSource.value = it.key }
+
+        mediaProgressJob?.cancel()
+        if (snapshot.isPlaying && snapshot.durationMs > 0L) {
+            mediaProgressJob = viewModelScope.launch {
+                while (true) {
+                    delay(1_000)
+                    val elapsedMs = SystemClock.elapsedRealtime() - mediaPositionUpdatedAt
+                    val currentPosition = mediaPositionMs +
+                        (elapsedMs * mediaPlaybackSpeed).toLong()
+                    publishMediaProgress(currentPosition)
+                }
+            }
+        }
+    }
+
+    private fun publishMediaProgress(positionMs: Long) {
+        val boundedPosition = if (mediaDurationMs > 0L) {
+            positionMs.coerceIn(0L, mediaDurationMs)
+        } else {
+            positionMs.coerceAtLeast(0L)
+        }
+        _playbackProgress.value = if (mediaDurationMs > 0L) {
+            boundedPosition.toFloat() / mediaDurationMs
+        } else {
+            0f
+        }
+        _currentPosition.value = formatDuration(boundedPosition)
+        _totalDuration.value = formatDuration(mediaDurationMs)
+    }
+
+    private fun formatDuration(durationMs: Long): String {
+        val totalSeconds = durationMs.coerceAtLeast(0L) / 1_000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return "$minutes:${seconds.toString().padStart(2, '0')}"
+    }
+
     // -- Settings --
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { preferences.setThemeMode(mode) }
@@ -254,6 +424,9 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
+        mediaProgressJob?.cancel()
+        externalMediaController.release()
+        radioPlayer.release()
         httpClient.close()
     }
 }

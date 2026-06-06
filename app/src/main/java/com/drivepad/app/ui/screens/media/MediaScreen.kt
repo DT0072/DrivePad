@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -57,6 +59,10 @@ fun MediaScreen(
     onSeek: (Float) -> Unit,
     activeSource: String,
     onSourceSelected: (String) -> Unit,
+    hasMediaControlAccess: Boolean,
+    onRequestMediaControlAccess: () -> Unit,
+    volume: Float,
+    onVolumeChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -150,6 +156,35 @@ fun MediaScreen(
                                     .background(source.color)
                             )
                         }
+                    }
+                }
+            }
+
+            if (!hasMediaControlAccess) {
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    backgroundColor = AmberAccent.copy(alpha = 0.1f),
+                    borderColor = AmberAccent.copy(alpha = 0.35f),
+                    padding = DriveDimens.spacingMd,
+                ) {
+                    Text(
+                        text = "Media access required",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = AmberAccent,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Allow DrivePad to read active playback so these controls can operate YouTube Music and other players.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(DriveDimens.spacingSm))
+                    Button(
+                        onClick = onRequestMediaControlAccess,
+                        colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                    ) {
+                        Text("Enable media access", color = Color.Black)
                     }
                 }
             }
@@ -354,6 +389,35 @@ fun MediaScreen(
                         modifier = Modifier.size(DriveDimens.iconMedium)
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(DriveDimens.spacingMd))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(0.72f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.VolumeDown,
+                    contentDescription = "Lower volume",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Slider(
+                    value = volume.coerceIn(0f, 1f),
+                    onValueChange = onVolumeChange,
+                    modifier = Modifier.weight(1f),
+                    colors = SliderDefaults.colors(
+                        thumbColor = ElectricBlue,
+                        activeTrackColor = ElectricBlue,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = "Raise volume",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

@@ -2,6 +2,7 @@ package com.drivepad.app.ui
 
 import android.app.Activity
 import android.content.Intent
+import android.provider.Settings
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -47,11 +48,14 @@ fun DriveApp(
     val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
     val totalDuration by viewModel.totalDuration.collectAsStateWithLifecycle()
     val activeMediaSource by viewModel.activeMediaSource.collectAsStateWithLifecycle()
+    val hasMediaControlAccess by viewModel.hasMediaControlAccess.collectAsStateWithLifecycle()
+    val mediaVolume by viewModel.mediaVolume.collectAsStateWithLifecycle()
 
     val radioStations by viewModel.radioStations.collectAsStateWithLifecycle()
     val currentStation by viewModel.currentStation.collectAsStateWithLifecycle()
     val currentFrequency by viewModel.currentFrequency.collectAsStateWithLifecycle()
     val isRadioPlaying by viewModel.isRadioPlaying.collectAsStateWithLifecycle()
+    val radioPlaybackError by viewModel.radioPlaybackError.collectAsStateWithLifecycle()
     val radioPresets by viewModel.radioPresets.collectAsStateWithLifecycle()
 
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
@@ -124,13 +128,22 @@ fun DriveApp(
                         onSkipPrevious = viewModel::skipPrevious,
                         onSeek = viewModel::seekTo,
                         activeSource = activeMediaSource,
-                        onSourceSelected = viewModel::setActiveMediaSource
+                        onSourceSelected = viewModel::setActiveMediaSource,
+                        hasMediaControlAccess = hasMediaControlAccess,
+                        onRequestMediaControlAccess = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                            )
+                        },
+                        volume = mediaVolume,
+                        onVolumeChange = viewModel::setMediaVolume
                     )
 
                     BottomNavItem.RADIO -> RadioScreen(
                         currentStation = currentStation,
                         currentFrequency = currentFrequency,
                         isPlaying = isRadioPlaying,
+                        playbackError = radioPlaybackError,
                         stations = radioStations,
                         presets = radioPresets,
                         onFrequencyChange = viewModel::setRadioFrequency,
