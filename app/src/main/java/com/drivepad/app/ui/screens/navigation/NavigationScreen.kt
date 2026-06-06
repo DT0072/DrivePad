@@ -1,28 +1,34 @@
 package com.drivepad.app.ui.screens.navigation
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import android.content.pm.PackageManager
+import android.webkit.GeolocationPermissions
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Launch
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.drivepad.app.ui.components.GlassCard
 import com.drivepad.app.ui.theme.*
 
@@ -42,6 +48,20 @@ fun NavigationScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var destination by rememberSaveable { mutableStateOf<String?>(null) }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {}
+
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
 
     // Available navigation apps
     val navApps = remember {
@@ -113,14 +133,14 @@ fun NavigationScreen(
                                 color = if (isInstalled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                             )
                             Text(
-                                text = if (isInstalled) "Tap to open" else "Not installed",
+                                text = if (isInstalled) "Open externally" else "Not installed",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isInstalled) app.color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                             )
                         }
                         if (isInstalled) {
                             Icon(
-                                imageVector = Icons.Filled.Launch,
+                                imageVector = Icons.AutoMirrored.Filled.Launch,
                                 contentDescription = "Open",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(DriveDimens.iconSmall)
@@ -148,21 +168,21 @@ fun NavigationScreen(
                     icon = Icons.Filled.Home,
                     label = "Home",
                     color = ElectricBlue,
-                    onClick = { searchInMaps(context, "Home") },
+                    onClick = { destination = "Home" },
                     modifier = Modifier.weight(1f)
                 )
                 QuickNavButton(
                     icon = Icons.Filled.Work,
                     label = "Work",
                     color = EmeraldGreen,
-                    onClick = { searchInMaps(context, "Work") },
+                    onClick = { destination = "Work" },
                     modifier = Modifier.weight(1f)
                 )
                 QuickNavButton(
                     icon = Icons.Filled.LocalGasStation,
                     label = "Fuel",
                     color = AmberAccent,
-                    onClick = { searchInMaps(context, "Gas station near me") },
+                    onClick = { destination = "Gas station near me" },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -175,51 +195,17 @@ fun NavigationScreen(
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingLg)
         ) {
-            // Map placeholder
+            // In-app map. Explicit app buttons on the left still open native map apps.
             GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                onClick = {
-                    if (installedApps.isNotEmpty()) {
-                        launchNavApp(context, installedApps.first().packageName)
-                    }
-                }
+                padding = 0.dp,
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    ElectricBlue.copy(alpha = 0.08f),
-                                    MaterialTheme.colorScheme.surfaceContainerLow
-                                )
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Outlined.Map,
-                            contentDescription = null,
-                            tint = ElectricBlue.copy(alpha = 0.4f),
-                            modifier = Modifier.size(80.dp)
-                        )
-                        Spacer(modifier = Modifier.height(DriveDimens.spacingMd))
-                        Text(
-                            text = "Tap to open navigation",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Full-screen navigation experience",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                    }
-                }
+                InAppNavigationView(
+                    destination = destination,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
 
             // Favorite destinations placeholder
@@ -296,11 +282,60 @@ private fun launchNavApp(context: Context, packageName: String) {
     }
 }
 
-private fun searchInMaps(context: Context, query: String) {
-    try {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$query"))
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        // No maps app available
-    }
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun InAppNavigationView(
+    destination: String?,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val targetUrl = remember(destination) { buildNavigationUrl(destination) }
+
+    AndroidView(
+        modifier = modifier,
+        factory = {
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.setGeolocationEnabled(true)
+                webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView,
+                        request: WebResourceRequest,
+                    ): Boolean {
+                        val uri = request.url
+                        if (uri.scheme == "http" || uri.scheme == "https") {
+                            return false
+                        }
+                        return try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                            true
+                        } catch (_: Exception) {
+                            true
+                        }
+                    }
+                }
+                webChromeClient = object : WebChromeClient() {
+                    override fun onGeolocationPermissionsShowPrompt(
+                        origin: String?,
+                        callback: GeolocationPermissions.Callback?,
+                    ) {
+                        val permissionGranted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                        ) == PackageManager.PERMISSION_GRANTED
+                        callback?.invoke(origin, permissionGranted, false)
+                    }
+                }
+                tag = targetUrl
+                loadUrl(targetUrl)
+            }
+        },
+        update = { webView ->
+            if (webView.tag != targetUrl) {
+                webView.tag = targetUrl
+                webView.loadUrl(targetUrl)
+            }
+        },
+    )
 }

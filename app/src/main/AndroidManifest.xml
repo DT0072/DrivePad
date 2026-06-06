@@ -12,6 +12,7 @@
 
     <!-- Location (weather, sunset calc) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- Media -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
@@ -22,13 +23,23 @@
     <!-- Boot & Power -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <queries>
+        <package android:name="com.google.android.apps.maps" />
+        <package android:name="com.waze" />
+        <package android:name="com.huawei.maps.app" />
+        <package android:name="com.spotify.music" />
+        <package android:name="com.google.android.apps.youtube.music" />
+        <package android:name="com.huawei.music" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="DrivePad"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.DrivePad">
+        android:theme="@style/Theme.DrivePad"
+        android:usesCleartextTraffic="true">
 
         <!-- Main Activity: supports both normal app and launcher mode -->
         <activity
@@ -52,6 +63,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".media.MediaNotificationListenerService"
+            android:exported="true"
+            android:label="DrivePad media control"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <!-- Power connection receiver (auto-launch when vehicle power connects) -->
         <receiver

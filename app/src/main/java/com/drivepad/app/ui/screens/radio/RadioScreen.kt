@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.drivepad.app.data.api.RadioStation
 import com.drivepad.app.ui.components.GlassCard
 import com.drivepad.app.ui.theme.*
+import java.util.Locale
 
 // ============================================================
 // FM Radio Screen (Internet Radio with FM-style UI)
@@ -40,6 +41,7 @@ fun RadioScreen(
     currentStation: RadioStation?,
     currentFrequency: Float,
     isPlaying: Boolean,
+    playbackError: String?,
     stations: List<RadioStation>,
     presets: List<RadioStation?>,
     onFrequencyChange: (Float) -> Unit,
@@ -99,7 +101,7 @@ fun RadioScreen(
 
                     // Frequency display
                     Text(
-                        text = String.format("%.1f", currentFrequency),
+                        text = String.format(Locale.US, "%.1f", currentFrequency),
                         style = MaterialTheme.typography.displayLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -127,6 +129,17 @@ fun RadioScreen(
                             text = currentStation.tags.split(",").take(3).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (playbackError != null) {
+                        Spacer(modifier = Modifier.height(DriveDimens.spacingXs))
+                        Text(
+                            text = playbackError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }

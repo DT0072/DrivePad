@@ -25,6 +25,7 @@ A centralized portal designed to handle external phone projection dongles and so
 ### 🎵 Universal Media Center
 - A unified media dashboard displaying current playback status with a spinning vinyl animation.
 - One-tap intent routing to popular media sources: Spotify, YouTube Music, Huawei Music, and Local Storage.
+- Controls active Android media sessions for play/pause, next, previous, seeking, and volume.
 
 ### 🗺️ Smart Navigation
 - Auto-detects installed navigation engines (Google Maps, Waze, Petal Maps) and provides full-screen mapping experiences.
@@ -51,3 +52,4 @@ A centralized portal designed to handle external phone projection dongles and so
    adb install -r app-debug.apk
    ```
 4. **Optional**: To use DrivePad as your persistent dashboard, navigate to `Settings -> Launcher Mode` within the app, then press your tablet's home button and select DrivePad as the default Home app.
+5. Open the Media screen and tap **Enable media access** once. Android requires notification-listener access before DrivePad can read and control playback from YouTube Music, Spotify, or Huawei Music.
