@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -21,10 +22,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.drivepad.app.ui.components.GlassCard
 import com.drivepad.app.ui.theme.*
 
@@ -37,9 +40,12 @@ fun HomeScreen(
     weatherIcon: String,
     weatherTemp: String,
     weatherDescription: String,
+    weatherHumidity: String,
+    weatherWind: String,
+    weatherUpdated: String,
     nowPlayingTitle: String,
     nowPlayingArtist: String,
-    nowPlayingAlbumArt: String,
+    nowPlayingAlbumArt: Any?,
     isPlaying: Boolean,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
@@ -68,11 +74,6 @@ fun HomeScreen(
                     .weight(1f)
             )
 
-            // Quick Access Grid
-            QuickAccessGrid(
-                onItemClick = onNavigateToScreen,
-                modifier = Modifier.fillMaxWidth()
-            )
         }
 
         // Center column: Now Playing
@@ -102,14 +103,17 @@ fun HomeScreen(
                 icon = weatherIcon,
                 temperature = weatherTemp,
                 description = weatherDescription,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Vehicle Info Card (decorative)
-            VehicleInfoCard(
+                humidity = weatherHumidity,
+                wind = weatherWind,
+                updated = weatherUpdated,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
+                    .weight(1f),
+            )
+
+            QuickAccessGrid(
+                onItemClick = onNavigateToScreen,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -222,7 +226,7 @@ private fun NavigationCard(
 private fun NowPlayingCard(
     title: String,
     artist: String,
-    albumArtUrl: String,
+    albumArtUrl: Any?,
     isPlaying: Boolean,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
@@ -306,19 +310,24 @@ private fun NowPlayingCard(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (title.isNotEmpty()) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Filled.Album,
-                        contentDescription = null,
-                        tint = if (isPlaying) ElectricBlue else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(80.dp)
-                    )
-                }
+            if (albumArtUrl != null) {
+                AsyncImage(
+                    model = albumArtUrl,
+                    contentDescription = "Album artwork",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else if (title.isNotEmpty()) {
+                Icon(
+                    imageVector = Icons.Filled.Album,
+                    contentDescription = null,
+                    tint = if (isPlaying) ElectricBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(80.dp)
+                )
             } else {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = Icons.Outlined.QueueMusic,
+                        imageVector = Icons.AutoMirrored.Outlined.QueueMusic,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                         modifier = Modifier.size(64.dp)
@@ -419,6 +428,9 @@ private fun WeatherCard(
     icon: String,
     temperature: String,
     description: String,
+    humidity: String,
+    wind: String,
+    updated: String,
     modifier: Modifier = Modifier
 ) {
     GlassCard(modifier = modifier) {
@@ -463,106 +475,30 @@ private fun WeatherCard(
                 )
             }
         }
-    }
-}
-
-// ============================================================
-// Vehicle Info Card (decorative dashboard widget)
-// ============================================================
-
-@Composable
-private fun VehicleInfoCard(
-    modifier: Modifier = Modifier
-) {
-    GlassCard(modifier = modifier) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.DirectionsCar,
-                contentDescription = null,
-                tint = EmeraldGreen,
-                modifier = Modifier.size(DriveDimens.iconSmall)
-            )
-            Text(
-                text = "Vehicle",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
 
         Spacer(modifier = Modifier.height(DriveDimens.spacingMd))
-
-        // Status items
-        VehicleStatusRow(label = "Engine", value = "Running", color = EmeraldGreen)
-        Spacer(modifier = Modifier.height(DriveDimens.spacingSm))
-        VehicleStatusRow(label = "Charging", value = "Connected", color = ElectricBlue)
-        Spacer(modifier = Modifier.height(DriveDimens.spacingSm))
-        VehicleStatusRow(label = "Audio", value = "Bluetooth", color = VioletAccent)
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Decorative speed display
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                .padding(DriveDimens.spacingMd),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "DRIVE MODE",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = EmeraldGreen,
-                    letterSpacing = 2.sp
-                )
-                Text(
-                    text = "Active",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+            WeatherMetric("Humidity", humidity, Icons.Filled.WaterDrop)
+            WeatherMetric("Wind", wind, Icons.Filled.Air)
         }
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = updated,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        )
     }
 }
 
 @Composable
-private fun VehicleStatusRow(
-    label: String,
-    value: String,
-    color: Color
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(color)
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodySmall,
-                color = color,
-                fontWeight = FontWeight.Medium
-            )
-        }
+private fun WeatherMetric(label: String, value: String, icon: ImageVector) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(icon, contentDescription = null, tint = ElectricBlue)
+        Text(value, style = MaterialTheme.typography.titleSmall)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -583,7 +519,7 @@ private fun QuickAccessGrid(
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
-        QuickAccessItem("radio", "Radio", Icons.Filled.Radio, AmberAccent),
+        QuickAccessItem("media", "Audio", Icons.Filled.Headphones, AmberAccent),
         QuickAccessItem("projection", "Phone", Icons.Filled.PhoneAndroid, EmeraldGreen),
         QuickAccessItem("settings", "Settings", Icons.Filled.Settings, MaterialTheme.colorScheme.onSurfaceVariant),
         QuickAccessItem("connectivity", "Connect", Icons.Filled.Bluetooth, ElectricBlue),

@@ -2,7 +2,6 @@ package com.drivepad.app.ui.screens.navigation
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.webkit.GeolocationPermissions
@@ -14,7 +13,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Launch
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -36,19 +34,13 @@ import com.drivepad.app.ui.theme.*
 // Navigation Hub Screen
 // ============================================================
 
-data class NavAppInfo(
-    val name: String,
-    val packageName: String,
-    val icon: ImageVector,
-    val color: Color
-)
-
 @Composable
 fun NavigationScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var destination by rememberSaveable { mutableStateOf<String?>(null) }
+    var destinationInput by rememberSaveable { mutableStateOf("") }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) {}
@@ -63,96 +55,60 @@ fun NavigationScreen(
         }
     }
 
-    // Available navigation apps
-    val navApps = remember {
-        listOf(
-            NavAppInfo("Google Maps", "com.google.android.apps.maps", Icons.Filled.Map, ElectricBlue),
-            NavAppInfo("Waze", "com.waze", Icons.Filled.Traffic, EmeraldGreen),
-            NavAppInfo("Petal Maps", "com.huawei.maps.app", Icons.Filled.Explore, AmberAccent),
-        )
-    }
-
-    // Check which apps are installed
-    val installedApps = remember {
-        navApps.filter { app ->
-            try {
-                context.packageManager.getPackageInfo(app.packageName, 0)
-                true
-            } catch (e: Exception) {
-                false
-            }
-        }
-    }
-
     Row(
         modifier = modifier
             .fillMaxSize()
             .padding(DriveDimens.spacingLg),
         horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingLg)
     ) {
-        // Left: Nav app selector + Quick actions
+        // Left: Embedded navigation controls
         Column(
             modifier = Modifier
-                .weight(0.4f)
+                .weight(0.32f)
                 .fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingLg)
+            verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingMd)
         ) {
-            // Navigation apps
-            Text(
-                text = "Navigation Apps",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            navApps.forEach { app ->
-                val isInstalled = installedApps.contains(app)
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        if (isInstalled) {
-                            launchNavApp(context, app.packageName)
-                        }
-                    }
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm),
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingMd)
-                    ) {
-                        Icon(
-                            imageVector = app.icon,
-                            contentDescription = app.name,
-                            tint = if (isInstalled) app.color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            modifier = Modifier.size(DriveDimens.iconLarge)
+                    Icon(Icons.Filled.Map, null, tint = ElectricBlue)
+                    Column {
+                        Text(
+                            "Google Maps",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
                         )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = app.name,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = if (isInstalled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
-                            Text(
-                                text = if (isInstalled) "Open externally" else "Not installed",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isInstalled) app.color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                            )
-                        }
-                        if (isInstalled) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Launch,
-                                contentDescription = "Open",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(DriveDimens.iconSmall)
-                            )
-                        }
+                        Text(
+                            "Embedded in DrivePad",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = EmeraldGreen,
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            OutlinedTextField(
+                value = destinationInput,
+                onValueChange = { destinationInput = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Where to?") },
+                leadingIcon = { Icon(Icons.Filled.Search, null) },
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            if (destinationInput.isNotBlank()) {
+                                destination = destinationInput.trim()
+                            }
+                        },
+                    ) {
+                        Icon(Icons.Filled.Directions, "Start route")
+                    }
+                },
+                singleLine = true,
+            )
 
-            // Quick actions
             Text(
                 text = "Quick Actions",
                 style = MaterialTheme.typography.titleMedium,
@@ -186,12 +142,20 @@ fun NavigationScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Text(
+                text = "Waze's native interface cannot be embedded by Android. Google Maps web navigation stays inside DrivePad; Waze can only be opened as a separate app.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
-        // Right: Map placeholder & favorites
+        // Right: live embedded map
         Column(
             modifier = Modifier
-                .weight(0.6f)
+                .weight(0.68f)
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingLg)
         ) {
@@ -208,32 +172,6 @@ fun NavigationScreen(
                 )
             }
 
-            // Favorite destinations placeholder
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Favorite Destinations",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Icon(
-                        imageVector = Icons.Outlined.Star,
-                        contentDescription = null,
-                        tint = AmberAccent,
-                        modifier = Modifier.size(DriveDimens.iconSmall)
-                    )
-                }
-                Spacer(modifier = Modifier.height(DriveDimens.spacingSm))
-                Text(
-                    text = "Save your frequent destinations for quick access",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }
@@ -268,17 +206,6 @@ private fun QuickNavButton(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-    }
-}
-
-private fun launchNavApp(context: Context, packageName: String) {
-    try {
-        val intent = context.packageManager.getLaunchIntentForPackage(packageName)
-        if (intent != null) {
-            context.startActivity(intent)
-        }
-    } catch (e: Exception) {
-        // App not found
     }
 }
 

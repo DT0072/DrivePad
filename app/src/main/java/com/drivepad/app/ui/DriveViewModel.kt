@@ -1,8 +1,16 @@
 package com.drivepad.app.ui
 
 import android.app.Application
+import android.Manifest
 import android.content.ComponentName
+import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.location.Location
+import android.location.LocationManager
+import android.os.CancellationSignal
 import android.os.SystemClock
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
@@ -27,6 +35,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * Main ViewModel for the DrivePad application.
@@ -37,6 +47,8 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     private val httpClient = HttpClient(Android)
     private val weatherApi = WeatherApiClient(httpClient)
     private val radioApi = RadioBrowserApiClient(httpClient)
+    private val locationManager =
+        application.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     val preferences = DrivePreferences(application.dataStore)
 
     private val mediaPackages = mapOf(
@@ -102,8 +114,8 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     private val _nowPlayingAlbum = MutableStateFlow("")
     val nowPlayingAlbum: StateFlow<String> = _nowPlayingAlbum.asStateFlow()
 
-    private val _nowPlayingAlbumArt = MutableStateFlow("")
-    val nowPlayingAlbumArt: StateFlow<String> = _nowPlayingAlbumArt.asStateFlow()
+    private val _nowPlayingAlbumArt = MutableStateFlow<Any?>(null)
+    val nowPlayingAlbumArt: StateFlow<Any?> = _nowPlayingAlbumArt.asStateFlow()
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -171,21 +183,61 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     // -- Weather --
     private fun loadWeather() {
         viewModelScope.launch {
-            preferences.weatherLatitude.combine(preferences.weatherLongitude) { lat, lon ->
-                Pair(lat, lon)
-            }.collect { (lat, lon) ->
-                val data = weatherApi.getCurrentWeather(lat, lon)
-                _weather.value = data
+            while (true) {
+                refreshWeather()
+                delay(WEATHER_REFRESH_INTERVAL_MS)
             }
         }
     }
 
     fun refreshWeather() {
         viewModelScope.launch {
-            val lat = preferences.weatherLatitude.first()
-            val lon = preferences.weatherLongitude.first()
+            val savedLat = preferences.weatherLatitude.first()
+            val savedLon = preferences.weatherLongitude.first()
+            val location = getCurrentLocation()
+            val lat = location?.latitude ?: savedLat
+            val lon = location?.longitude ?: savedLon
+            if (location != null) {
+                preferences.setWeatherLocation(lat, lon)
+            }
             val data = weatherApi.getCurrentWeather(lat, lon)
             _weather.value = data
+        }
+    }
+
+    private suspend fun getCurrentLocation(): Location? {
+        val application = getApplication<Application>()
+        val permissionGranted = ContextCompat.checkSelfPermission(
+            application,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+            application,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!permissionGranted) return null
+
+        val provider = when {
+            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ->
+                LocationManager.NETWORK_PROVIDER
+            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ->
+                LocationManager.GPS_PROVIDER
+            else -> return null
+        }
+
+        return try {
+            suspendCancellableCoroutine { continuation ->
+                val cancellationSignal = CancellationSignal()
+                continuation.invokeOnCancellation { cancellationSignal.cancel() }
+                locationManager.getCurrentLocation(
+                    provider,
+                    cancellationSignal,
+                    ContextCompat.getMainExecutor(application),
+                ) { location ->
+                    if (continuation.isActive) continuation.resume(location)
+                }
+            }
+        } catch (_: SecurityException) {
+            null
         }
     }
 
@@ -220,7 +272,7 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         externalMediaController.refresh()
     }
 
-    fun updateNowPlaying(title: String, artist: String, album: String, albumArt: String) {
+    fun updateNowPlaying(title: String, artist: String, album: String, albumArt: Bitmap?) {
         _nowPlayingTitle.value = title
         _nowPlayingArtist.value = artist
         _nowPlayingAlbum.value = album
@@ -352,6 +404,7 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         _nowPlayingTitle.value = snapshot.title
         _nowPlayingArtist.value = snapshot.artist
         _nowPlayingAlbum.value = snapshot.album
+        _nowPlayingAlbumArt.value = snapshot.albumArt ?: snapshot.albumArtUri.ifBlank { null }
         _isPlaying.value = snapshot.isPlaying
         _mediaVolume.value = snapshot.volume
 
@@ -428,5 +481,9 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         externalMediaController.release()
         radioPlayer.release()
         httpClient.close()
+    }
+
+    private companion object {
+        const val WEATHER_REFRESH_INTERVAL_MS = 10 * 60 * 1_000L
     }
 }
