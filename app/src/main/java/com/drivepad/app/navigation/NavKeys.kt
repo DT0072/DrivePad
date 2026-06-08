@@ -14,7 +14,6 @@ import kotlinx.serialization.Serializable
 @Serializable data object HomeKey : NavKey
 @Serializable data object NavigationKey : NavKey
 @Serializable data object MediaKey : NavKey
-@Serializable data object RadioKey : NavKey
 @Serializable data object ProjectionKey : NavKey
 @Serializable data object ConnectivityKey : NavKey
 @Serializable data object SettingsKey : NavKey
@@ -43,12 +42,6 @@ enum class BottomNavItem(
         label = "Media",
         selectedIcon = Icons.Filled.MusicNote,
         unselectedIcon = Icons.Outlined.MusicNote
-    ),
-    RADIO(
-        key = RadioKey,
-        label = "Radio",
-        selectedIcon = Icons.Filled.Radio,
-        unselectedIcon = Icons.Outlined.Radio
     ),
     PROJECTION(
         key = ProjectionKey,

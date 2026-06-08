@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (::viewModel.isInitialized) {
             viewModel.refreshMediaSession()
+            viewModel.refreshWeather()
         }
     }
 }

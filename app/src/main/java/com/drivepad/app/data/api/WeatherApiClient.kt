@@ -34,7 +34,8 @@ class WeatherApiClient(private val httpClient: HttpClient) {
                     windSpeed = current.windSpeed,
                     isDay = current.isDay == 1,
                     description = weatherCodeToDescription(current.weatherCode),
-                    icon = weatherCodeToIcon(current.weatherCode, current.isDay == 1)
+                    icon = weatherCodeToIcon(current.weatherCode, current.isDay == 1),
+                    observedAt = current.time,
                 )
             }
         } catch (e: Exception) {
@@ -80,6 +81,7 @@ data class OpenMeteoResponse(
 
 @Serializable
 data class CurrentWeather(
+    val time: String = "",
     @SerialName("temperature_2m") val temperature: Double,
     @SerialName("relative_humidity_2m") val humidity: Int,
     @SerialName("weather_code") val weatherCode: Int,
@@ -94,5 +96,6 @@ data class WeatherData(
     val windSpeed: Double,
     val isDay: Boolean,
     val description: String,
-    val icon: String
+    val icon: String,
+    val observedAt: String,
 )

@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.drivepad.app.ui.components.GlassCard
 import com.drivepad.app.ui.theme.*
+import coil3.compose.AsyncImage
 
 // ============================================================
 // Media Center Screen
@@ -49,6 +51,7 @@ fun MediaScreen(
     nowPlayingTitle: String,
     nowPlayingArtist: String,
     nowPlayingAlbum: String,
+    nowPlayingAlbumArt: Any?,
     isPlaying: Boolean,
     playbackProgress: Float,
     currentPosition: String,
@@ -73,7 +76,6 @@ fun MediaScreen(
             MediaSource("ytmusic", "YT Music", "com.google.android.apps.youtube.music", Icons.Filled.PlayCircle, CoralRed),
             MediaSource("huawei", "Huawei Music", "com.huawei.music", Icons.Filled.MusicNote, ElectricBlue),
             MediaSource("local", "Local Music", "", Icons.Filled.FolderOpen, AmberAccent),
-            MediaSource("radio", "Radio", "", Icons.Filled.Radio, VioletAccent),
         )
     }
 
@@ -234,16 +236,25 @@ fun MediaScreen(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Album,
-                    contentDescription = "Album Art",
-                    tint = if (isPlaying) ElectricBlue else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                    modifier = Modifier
-                        .size(120.dp)
-                        .then(
-                            if (isPlaying) Modifier.rotate(discRotation) else Modifier
-                        )
-                )
+                if (nowPlayingAlbumArt != null) {
+                    AsyncImage(
+                        model = nowPlayingAlbumArt,
+                        contentDescription = "Album artwork",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.Album,
+                        contentDescription = "Album Art",
+                        tint = if (isPlaying) ElectricBlue else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                        modifier = Modifier
+                            .size(120.dp)
+                            .then(
+                                if (isPlaying) Modifier.rotate(discRotation) else Modifier
+                            )
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(DriveDimens.spacingXl))

@@ -1,8 +1,12 @@
 package com.drivepad.app.ui
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -11,16 +15,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.drivepad.app.navigation.BottomNavItem
 import com.drivepad.app.ui.components.DriveBottomNavBar
 import com.drivepad.app.ui.components.DriveStatusBar
 import com.drivepad.app.ui.screens.connectivity.ConnectivityScreen
 import com.drivepad.app.ui.screens.home.HomeScreen
-import com.drivepad.app.ui.screens.media.MediaScreen
+import com.drivepad.app.ui.screens.media.AudioScreen
 import com.drivepad.app.ui.screens.navigation.NavigationScreen
 import com.drivepad.app.ui.screens.projection.ProjectionScreen
-import com.drivepad.app.ui.screens.radio.RadioScreen
 import com.drivepad.app.ui.screens.settings.SettingsScreen
 
 /**
@@ -33,6 +37,28 @@ fun DriveApp(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { permissions ->
+        if (permissions.values.any { it }) {
+            viewModel.refreshWeather()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                ),
+            )
+        }
+    }
 
     // Current tab
     var selectedTab by remember { mutableStateOf(BottomNavItem.HOME) }
@@ -94,6 +120,13 @@ fun DriveApp(
                         weatherIcon = weather?.icon ?: "🌤️",
                         weatherTemp = weather?.let { "${it.temperature.toInt()}°C" } ?: "--°C",
                         weatherDescription = weather?.description ?: "Loading...",
+                        weatherHumidity = weather?.let { "${it.humidity}%" } ?: "--",
+                        weatherWind = weather?.let { "${it.windSpeed.toInt()} km/h" } ?: "--",
+                        weatherUpdated = weather?.observedAt
+                            ?.substringAfter("T", "")
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { "Live · $it" }
+                            ?: "Updating live weather",
                         nowPlayingTitle = nowPlayingTitle,
                         nowPlayingArtist = nowPlayingArtist,
                         nowPlayingAlbumArt = nowPlayingAlbumArt,
@@ -105,7 +138,7 @@ fun DriveApp(
                             when (screenId) {
                                 "navigation" -> selectedTab = BottomNavItem.NAVIGATION
                                 "media" -> selectedTab = BottomNavItem.MEDIA
-                                "radio" -> selectedTab = BottomNavItem.RADIO
+                                "radio" -> selectedTab = BottomNavItem.MEDIA
                                 "projection" -> selectedTab = BottomNavItem.PROJECTION
                                 "connectivity" -> selectedTab = BottomNavItem.SETTINGS
                                 "settings" -> selectedTab = BottomNavItem.SETTINGS
@@ -115,10 +148,11 @@ fun DriveApp(
 
                     BottomNavItem.NAVIGATION -> NavigationScreen()
 
-                    BottomNavItem.MEDIA -> MediaScreen(
+                    BottomNavItem.MEDIA -> AudioScreen(
                         nowPlayingTitle = nowPlayingTitle,
                         nowPlayingArtist = nowPlayingArtist,
                         nowPlayingAlbum = nowPlayingAlbum,
+                        nowPlayingAlbumArt = nowPlayingAlbumArt,
                         isPlaying = isPlaying,
                         playbackProgress = playbackProgress,
                         currentPosition = currentPosition,
@@ -136,24 +170,21 @@ fun DriveApp(
                             )
                         },
                         volume = mediaVolume,
-                        onVolumeChange = viewModel::setMediaVolume
-                    )
-
-                    BottomNavItem.RADIO -> RadioScreen(
+                        onVolumeChange = viewModel::setMediaVolume,
                         currentStation = currentStation,
                         currentFrequency = currentFrequency,
-                        isPlaying = isRadioPlaying,
-                        playbackError = radioPlaybackError,
+                        isRadioPlaying = isRadioPlaying,
+                        radioPlaybackError = radioPlaybackError,
                         stations = radioStations,
                         presets = radioPresets,
                         onFrequencyChange = viewModel::setRadioFrequency,
-                        onPlayPause = viewModel::toggleRadioPlayPause,
-                        onSeekForward = viewModel::seekRadioForward,
-                        onSeekBackward = viewModel::seekRadioBackward,
+                        onRadioPlayPause = viewModel::toggleRadioPlayPause,
+                        onRadioSeekForward = viewModel::seekRadioForward,
+                        onRadioSeekBackward = viewModel::seekRadioBackward,
                         onStationSelect = viewModel::selectRadioStation,
                         onPresetSave = viewModel::savePreset,
                         onPresetLoad = viewModel::loadPreset,
-                        onSearch = { /* open search dialog */ },
+                        onRadioSearch = { /* open search dialog */ },
                         onAutoScan = viewModel::autoScanStations
                     )
 

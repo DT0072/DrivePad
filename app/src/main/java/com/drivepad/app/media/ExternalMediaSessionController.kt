@@ -2,6 +2,7 @@ package com.drivepad.app.media
 
 import android.content.ComponentName
 import android.content.Context
+import android.graphics.Bitmap
 import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.VolumeProvider
@@ -16,6 +17,8 @@ data class ExternalPlaybackSnapshot(
     val title: String = "",
     val artist: String = "",
     val album: String = "",
+    val albumArt: Bitmap? = null,
+    val albumArtUri: String = "",
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
@@ -203,6 +206,10 @@ class ExternalMediaSessionController(
                 artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
                     ?: metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST).orEmpty(),
                 album = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty(),
+                albumArt = metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+                    ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_ART),
+                albumArtUri = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI)
+                    ?: metadata?.getString(MediaMetadata.METADATA_KEY_ART_URI).orEmpty(),
                 isPlaying = state?.state == PlaybackState.STATE_PLAYING,
                 positionMs = state?.position?.coerceAtLeast(0L) ?: 0L,
                 durationMs = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)
