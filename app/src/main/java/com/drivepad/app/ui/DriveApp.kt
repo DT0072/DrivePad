@@ -74,6 +74,7 @@ fun DriveApp(
     val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
     val totalDuration by viewModel.totalDuration.collectAsStateWithLifecycle()
     val activeMediaSource by viewModel.activeMediaSource.collectAsStateWithLifecycle()
+    val activeMediaPackage by viewModel.activeMediaPackage.collectAsStateWithLifecycle()
     val hasMediaControlAccess by viewModel.hasMediaControlAccess.collectAsStateWithLifecycle()
     val mediaVolume by viewModel.mediaVolume.collectAsStateWithLifecycle()
 
@@ -162,6 +163,7 @@ fun DriveApp(
                         onSkipPrevious = viewModel::skipPrevious,
                         onSeek = viewModel::seekTo,
                         activeSource = activeMediaSource,
+                        activeMediaPackage = activeMediaPackage,
                         onSourceSelected = viewModel::setActiveMediaSource,
                         hasMediaControlAccess = hasMediaControlAccess,
                         onRequestMediaControlAccess = {

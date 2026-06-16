@@ -4,10 +4,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.drivepad.app.data.api.RadioStation
 import com.drivepad.app.ui.components.GlassCard
 import com.drivepad.app.ui.theme.*
+import kotlin.math.roundToInt
 import java.util.Locale
 
 // ============================================================
@@ -78,23 +80,40 @@ fun RadioScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // FM badge
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Radio,
-                            contentDescription = null,
-                            tint = AmberAccent,
-                            modifier = Modifier.size(DriveDimens.iconMedium)
-                        )
-                        Text(
-                            text = "FM RADIO",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = AmberAccent,
-                            letterSpacing = 2.sp
-                        )
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Radio,
+                                contentDescription = null,
+                                tint = AmberAccent,
+                                modifier = Modifier.size(DriveDimens.iconMedium)
+                            )
+                            Text(
+                                text = "FM RADIO",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = AmberAccent,
+                                letterSpacing = 2.sp
+                            )
+                        }
+                        FilledTonalButton(
+                            onClick = { onPresetSave(0) },
+                            enabled = currentStation != null,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = AmberAccent.copy(alpha = 0.18f),
+                                contentColor = AmberAccent,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        ) {
+                            Icon(Icons.Filled.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Save P1", style = MaterialTheme.typography.labelMedium)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(DriveDimens.spacingMd))
@@ -151,8 +170,37 @@ fun RadioScreen(
                 onFrequencyChange = onFrequencyChange,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp)
+                    .height(72.dp)
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedButton(
+                    onClick = { onFrequencyChange((currentFrequency - 0.1f).roundToTenth()) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Filled.Remove, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("0.1")
+                }
+                Text(
+                    text = "Drag or tap the dial to tune",
+                    modifier = Modifier.weight(1.4f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(
+                    onClick = { onFrequencyChange((currentFrequency + 0.1f).roundToTenth()) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("0.1")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Filled.Add, contentDescription = null)
+                }
+            }
 
             // Transport controls
             Row(
@@ -233,6 +281,14 @@ fun RadioScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            if (i == 0 && preset != null) {
+                                Icon(
+                                    imageVector = Icons.Filled.Star,
+                                    contentDescription = "Favorite",
+                                    tint = AmberAccent,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
                             Text(
                                 text = "P${i + 1}",
                                 style = MaterialTheme.typography.labelSmall,
@@ -309,7 +365,7 @@ fun RadioScreen(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingXs)
             ) {
-                items(stations) { station ->
+                itemsIndexed(stations) { index, station ->
                     val isActive = station.stationUuid == currentStation?.stationUuid
                     GlassCard(
                         modifier = Modifier.fillMaxWidth(),
@@ -343,15 +399,12 @@ fun RadioScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                val freq = station.getDisplayFrequency()
-                                if (freq.isNotEmpty()) {
-                                    Text(
-                                        text = "$freq MHz",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 10.sp
-                                    )
-                                }
+                                Text(
+                                    text = "${station.tunedFrequency(index).formatFrequency()} MHz",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 10.sp
+                                )
                             }
                         }
                     }
@@ -381,11 +434,25 @@ fun FrequencyDial(
     Canvas(
         modifier = modifier
             .pointerInput(Unit) {
-                detectHorizontalDragGestures { _, dragAmount ->
-                    val delta = dragAmount / size.width * 20f
-                    val newFreq = (frequency + delta).coerceIn(88f, 108f)
-                    onFrequencyChange(newFreq)
+                fun tuneFromX(x: Float) {
+                    val normalized = (x / size.width).coerceIn(0f, 1f)
+                    onFrequencyChange((88f + normalized * 20f).roundToTenth())
                 }
+                detectTapGestures { offset ->
+                    tuneFromX(offset.x)
+                }
+            }
+            .pointerInput(Unit) {
+                fun tuneFromX(x: Float) {
+                    val normalized = (x / size.width).coerceIn(0f, 1f)
+                    onFrequencyChange((88f + normalized * 20f).roundToTenth())
+                }
+                detectDragGestures(
+                    onDragStart = { offset -> tuneFromX(offset.x) },
+                    onDrag = { change, _ ->
+                        tuneFromX(change.position.x)
+                    },
+                )
             }
     ) {
         val width = size.width
@@ -437,4 +504,16 @@ fun FrequencyDial(
             center = Offset(indicatorX, centerY)
         )
     }
+}
+
+private fun Float.roundToTenth(): Float = (this * 10f).roundToInt() / 10f
+
+private fun Float.formatFrequency(): String = String.format(Locale.US, "%.1f", this)
+
+private fun RadioStation.tunedFrequency(index: Int): Float {
+    val published = getDisplayFrequency().toFloatOrNull()
+    if (published != null && published in 88f..108f) {
+        return published.roundToTenth()
+    }
+    return (88f + ((index * 7) % 201) / 10f).coerceIn(88f, 108f).roundToTenth()
 }

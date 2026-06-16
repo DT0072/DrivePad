@@ -37,6 +37,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Main ViewModel for the DrivePad application.
@@ -54,7 +56,6 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     private val mediaPackages = mapOf(
         "spotify" to "com.spotify.music",
         "ytmusic" to "com.google.android.apps.youtube.music",
-        "huawei" to "com.huawei.music",
     )
 
     private var mediaProgressJob: Job? = null
@@ -131,6 +132,9 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _activeMediaSource = MutableStateFlow("spotify")
     val activeMediaSource: StateFlow<String> = _activeMediaSource.asStateFlow()
+
+    private val _activeMediaPackage = MutableStateFlow("")
+    val activeMediaPackage: StateFlow<String> = _activeMediaPackage.asStateFlow()
 
     private val _hasMediaControlAccess = MutableStateFlow(false)
     val hasMediaControlAccess: StateFlow<Boolean> =
@@ -287,39 +291,33 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
             _radioStations.value = stations
             if (stations.isNotEmpty() && _currentStation.value == null) {
                 _currentStation.value = stations.first()
-                val freq = stations.first().getDisplayFrequency()
-                if (freq.isNotEmpty()) {
-                    _currentFrequency.value = freq.toFloatOrNull() ?: 98.8f
-                }
+                _currentFrequency.value = radioFrequencyFor(stations.first(), stations, 0)
             }
         }
     }
 
     fun selectRadioStation(station: RadioStation) {
         _currentStation.value = station
-        val freq = station.getDisplayFrequency()
-        if (freq.isNotEmpty()) {
-            _currentFrequency.value = freq.toFloatOrNull() ?: _currentFrequency.value
-        }
+        _currentFrequency.value = radioFrequencyFor(station)
         playRadioStation(station)
     }
 
     fun setRadioFrequency(freq: Float) {
-        _currentFrequency.value = freq.coerceIn(88f, 108f)
-        // Find nearest station
-        val nearest = _radioStations.value.minByOrNull { station ->
-            val stationFreq = station.getDisplayFrequency().toFloatOrNull() ?: Float.MAX_VALUE
-            kotlin.math.abs(stationFreq - freq)
-        }
-        if (nearest != null) {
-            val nearestFreq = nearest.getDisplayFrequency().toFloatOrNull()
-            if (nearestFreq != null && kotlin.math.abs(nearestFreq - freq) < 0.5f) {
-                val stationChanged =
-                    nearest.stationUuid != _currentStation.value?.stationUuid
-                _currentStation.value = nearest
-                if (stationChanged && radioPlayer.playWhenReady) {
-                    playRadioStation(nearest)
-                }
+        val tuned = freq.coerceIn(88f, 108f).roundToTenth()
+        _currentFrequency.value = tuned
+
+        val stations = _radioStations.value
+        val nearest = stations.withIndex().minByOrNull { indexed ->
+            abs(radioFrequencyFor(indexed.value, stations, indexed.index) - tuned)
+        } ?: return
+
+        val nearestFrequency = radioFrequencyFor(nearest.value, stations, nearest.index)
+        if (abs(nearestFrequency - tuned) <= 0.35f) {
+            val stationChanged =
+                nearest.value.stationUuid != _currentStation.value?.stationUuid
+            _currentStation.value = nearest.value
+            if (stationChanged && radioPlayer.playWhenReady) {
+                playRadioStation(nearest.value)
             }
         }
     }
@@ -400,7 +398,26 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         _isRadioPlaying.value = true
     }
 
+    private fun radioFrequencyFor(
+        station: RadioStation,
+        stations: List<RadioStation> = _radioStations.value,
+        knownIndex: Int = stations.indexOfFirst { it.stationUuid == station.stationUuid },
+    ): Float {
+        val published = station.getDisplayFrequency().toFloatOrNull()
+        if (published != null && published in 88f..108f) {
+            return published.roundToTenth()
+        }
+
+        val index = knownIndex.coerceAtLeast(0)
+        return (88f + ((index * 7) % 201) / 10f)
+            .coerceIn(88f, 108f)
+            .roundToTenth()
+    }
+
+    private fun Float.roundToTenth(): Float = (this * 10f).roundToInt() / 10f
+
     private fun updateExternalMediaState(snapshot: ExternalPlaybackSnapshot) {
+        _activeMediaPackage.value = snapshot.packageName
         _nowPlayingTitle.value = snapshot.title
         _nowPlayingArtist.value = snapshot.artist
         _nowPlayingAlbum.value = snapshot.album

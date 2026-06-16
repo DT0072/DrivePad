@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.webkit.GeolocationPermissions
+import android.webkit.WebSettings
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -41,6 +42,15 @@ fun NavigationScreen(
     val context = LocalContext.current
     var destination by rememberSaveable { mutableStateOf<String?>(null) }
     var destinationInput by rememberSaveable { mutableStateOf("") }
+    fun searchDestination(value: String) {
+        if (value.isNotBlank()) {
+            destination = value.trim()
+        }
+    }
+    fun setQuickDestination(value: String) {
+        destinationInput = value
+        destination = value
+    }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) {}
@@ -97,17 +107,24 @@ fun NavigationScreen(
                 leadingIcon = { Icon(Icons.Filled.Search, null) },
                 trailingIcon = {
                     IconButton(
-                        onClick = {
-                            if (destinationInput.isNotBlank()) {
-                                destination = destinationInput.trim()
-                            }
-                        },
+                        onClick = { searchDestination(destinationInput) },
                     ) {
                         Icon(Icons.Filled.Directions, "Start route")
                     }
                 },
                 singleLine = true,
             )
+
+            Button(
+                onClick = { searchDestination(destinationInput) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = destinationInput.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
+            ) {
+                Icon(Icons.Filled.Search, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Search in Maps")
+            }
 
             Text(
                 text = "Quick Actions",
@@ -124,21 +141,21 @@ fun NavigationScreen(
                     icon = Icons.Filled.Home,
                     label = "Home",
                     color = ElectricBlue,
-                    onClick = { destination = "Home" },
+                    onClick = { setQuickDestination("Home") },
                     modifier = Modifier.weight(1f)
                 )
                 QuickNavButton(
                     icon = Icons.Filled.Work,
                     label = "Work",
                     color = EmeraldGreen,
-                    onClick = { destination = "Work" },
+                    onClick = { setQuickDestination("Work") },
                     modifier = Modifier.weight(1f)
                 )
                 QuickNavButton(
                     icon = Icons.Filled.LocalGasStation,
                     label = "Fuel",
                     color = AmberAccent,
-                    onClick = { destination = "Gas station near me" },
+                    onClick = { setQuickDestination("Fuel near me") },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -146,7 +163,7 @@ fun NavigationScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             Text(
-                text = "Waze's native interface cannot be embedded by Android. Google Maps web navigation stays inside DrivePad; Waze can only be opened as a separate app.",
+                text = "Google Maps is loaded in embedded map mode for searching. Turn-by-turn navigation and Waze still open best in their native apps when needed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -225,6 +242,9 @@ private fun InAppNavigationView(
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.setGeolocationEnabled(true)
+                settings.loadWithOverviewMode = true
+                settings.useWideViewPort = true
+                settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(
                         view: WebView,
