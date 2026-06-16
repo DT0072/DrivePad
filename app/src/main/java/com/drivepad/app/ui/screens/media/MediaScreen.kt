@@ -61,6 +61,7 @@ fun MediaScreen(
     onSkipPrevious: () -> Unit,
     onSeek: (Float) -> Unit,
     activeSource: String,
+    activeMediaPackage: String,
     onSourceSelected: (String) -> Unit,
     hasMediaControlAccess: Boolean,
     onRequestMediaControlAccess: () -> Unit,
@@ -74,9 +75,33 @@ fun MediaScreen(
         listOf(
             MediaSource("spotify", "Spotify", "com.spotify.music", Icons.Filled.GraphicEq, EmeraldGreen),
             MediaSource("ytmusic", "YT Music", "com.google.android.apps.youtube.music", Icons.Filled.PlayCircle, CoralRed),
-            MediaSource("huawei", "Huawei Music", "com.huawei.music", Icons.Filled.MusicNote, ElectricBlue),
             MediaSource("local", "Local Music", "", Icons.Filled.FolderOpen, AmberAccent),
         )
+    }
+    val activePackageSource = remember(activeMediaPackage, mediaSources) {
+        mediaSources.firstOrNull {
+            it.packageName.isNotEmpty() && it.packageName == activeMediaPackage
+        }
+    }
+    val externalActiveSource = remember(activeMediaPackage) {
+        if (activeMediaPackage.isNotBlank() && activePackageSource == null) {
+            MediaSource(
+                id = "external",
+                name = getAppLabel(context, activeMediaPackage),
+                packageName = activeMediaPackage,
+                icon = Icons.Filled.MusicNote,
+                color = ElectricBlue,
+            )
+        } else {
+            null
+        }
+    }
+    val visibleSources = remember(activeMediaPackage, activePackageSource, externalActiveSource, mediaSources) {
+        when {
+            activePackageSource != null -> listOf(activePackageSource)
+            externalActiveSource != null -> listOf(externalActiveSource)
+            else -> mediaSources
+        }
     }
 
     // Spinning disc animation
@@ -111,12 +136,25 @@ fun MediaScreen(
                 fontWeight = FontWeight.SemiBold
             )
 
-            mediaSources.forEach { source ->
-                val isActive = source.id == activeSource
+            Text(
+                text = if (activeMediaPackage.isBlank()) {
+                    "Open a player and it will appear here automatically."
+                } else {
+                    "Showing active media session"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            visibleSources.forEach { source ->
+                val isActive = source.packageName == activeMediaPackage ||
+                    (activeMediaPackage.isBlank() && source.id == activeSource)
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = {
-                        onSourceSelected(source.id)
+                        if (source.id != "external") {
+                            onSourceSelected(source.id)
+                        }
                         if (source.packageName.isNotEmpty()) {
                             launchApp(context, source.packageName)
                         }
@@ -157,6 +195,39 @@ fun MediaScreen(
                                     .clip(CircleShape)
                                     .background(source.color)
                             )
+                        }
+                    }
+                }
+            }
+
+            if (visibleSources.size == 1) {
+                val source = visibleSources.first()
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    padding = DriveDimens.spacingMd,
+                    backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f),
+                ) {
+                    Text(
+                        text = "${source.name} library",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Android media controls expose the current song and transport controls. Open ${source.name} to browse playlists or song lists.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (source.packageName.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(DriveDimens.spacingSm))
+                        OutlinedButton(
+                            onClick = { launchApp(context, source.packageName) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Filled.LibraryMusic, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Open ${source.name}")
                         }
                     }
                 }
@@ -443,5 +514,14 @@ private fun launchApp(context: Context, packageName: String) {
         }
     } catch (e: Exception) {
         // App not found
+    }
+}
+
+private fun getAppLabel(context: Context, packageName: String): String {
+    return try {
+        val appInfo = context.packageManager.getApplicationInfo(packageName, 0)
+        context.packageManager.getApplicationLabel(appInfo).toString()
+    } catch (_: Exception) {
+        packageName.substringAfterLast('.').replaceFirstChar { it.uppercase() }
     }
 }

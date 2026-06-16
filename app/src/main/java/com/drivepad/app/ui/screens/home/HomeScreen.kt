@@ -5,9 +5,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -62,11 +59,10 @@ fun HomeScreen(
         // Left column: Navigation + Quick Access
         Column(
             modifier = Modifier
-                .weight(1f)
+                .weight(0.95f)
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingLg)
         ) {
-            // Navigation Card
             NavigationCard(
                 onClick = { onNavigateToScreen("navigation") },
                 modifier = Modifier
@@ -74,6 +70,12 @@ fun HomeScreen(
                     .weight(1f)
             )
 
+            QuickAccessGrid(
+                onItemClick = onNavigateToScreen,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(168.dp),
+            )
         }
 
         // Center column: Now Playing
@@ -94,11 +96,10 @@ fun HomeScreen(
         // Right column: Weather + Info
         Column(
             modifier = Modifier
-                .weight(0.6f)
+                .weight(0.7f)
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingLg)
         ) {
-            // Weather Card
             WeatherCard(
                 icon = weatherIcon,
                 temperature = weatherTemp,
@@ -108,12 +109,7 @@ fun HomeScreen(
                 updated = weatherUpdated,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-            )
-
-            QuickAccessGrid(
-                onItemClick = onNavigateToScreen,
-                modifier = Modifier.fillMaxWidth(),
+                    .height(220.dp),
             )
         }
     }
@@ -435,6 +431,7 @@ private fun WeatherCard(
 ) {
     GlassCard(modifier = modifier) {
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
         ) {
@@ -448,6 +445,14 @@ private fun WeatherCard(
                 text = "Weather",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = updated,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
 
@@ -463,20 +468,22 @@ private fun WeatherCard(
             )
             Column {
                 Text(
-                    text = temperature,
+                    text = temperature.takeIf { it.isNotBlank() } ?: "--°C",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = description,
+                    text = description.takeIf { it.isNotBlank() } ?: "Updating...",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(DriveDimens.spacingMd))
+        Spacer(modifier = Modifier.height(DriveDimens.spacingSm))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -484,20 +491,19 @@ private fun WeatherCard(
             WeatherMetric("Humidity", humidity, Icons.Filled.WaterDrop)
             WeatherMetric("Wind", wind, Icons.Filled.Air)
         }
-        Spacer(modifier = Modifier.weight(1f))
-        Text(
-            text = updated,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-        )
     }
 }
 
 @Composable
 private fun WeatherMetric(label: String, value: String, icon: ImageVector) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, contentDescription = null, tint = ElectricBlue)
-        Text(value, style = MaterialTheme.typography.titleSmall)
+        Icon(icon, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(18.dp))
+        Text(
+            value.takeIf { it.isNotBlank() } ?: "--",
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -525,33 +531,46 @@ private fun QuickAccessGrid(
         QuickAccessItem("connectivity", "Connect", Icons.Filled.Bluetooth, ElectricBlue),
     )
 
-    Row(
+    Column(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
+        verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
     ) {
-        items.forEach { item ->
-            GlassCard(
+        items.chunked(2).forEach { rowItems ->
+            Row(
                 modifier = Modifier.weight(1f),
-                onClick = { onItemClick(item.id) },
-                padding = DriveDimens.spacingMd
+                horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = item.icon,
-                        contentDescription = item.label,
-                        tint = item.tint,
-                        modifier = Modifier.size(DriveDimens.iconLarge)
-                    )
-                    Spacer(modifier = Modifier.height(DriveDimens.spacingXs))
-                    Text(
-                        text = item.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                rowItems.forEach { item ->
+                    GlassCard(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        onClick = { onItemClick(item.id) },
+                        padding = DriveDimens.spacingMd
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
+                        ) {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = item.label,
+                                tint = item.tint,
+                                modifier = Modifier.size(DriveDimens.iconMedium)
+                            )
+                            Text(
+                                text = item.label,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+                if (rowItems.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
