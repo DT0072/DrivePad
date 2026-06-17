@@ -77,6 +77,7 @@ fun DriveApp(
     val activeMediaPackage by viewModel.activeMediaPackage.collectAsStateWithLifecycle()
     val hasMediaControlAccess by viewModel.hasMediaControlAccess.collectAsStateWithLifecycle()
     val mediaVolume by viewModel.mediaVolume.collectAsStateWithLifecycle()
+    val mediaQueue by viewModel.mediaQueue.collectAsStateWithLifecycle()
 
     val radioStations by viewModel.radioStations.collectAsStateWithLifecycle()
     val currentStation by viewModel.currentStation.collectAsStateWithLifecycle()
@@ -132,9 +133,17 @@ fun DriveApp(
                         nowPlayingArtist = nowPlayingArtist,
                         nowPlayingAlbumArt = nowPlayingAlbumArt,
                         isPlaying = isPlaying,
+                        currentStation = currentStation,
+                        currentFrequency = currentFrequency,
+                        isRadioPlaying = isRadioPlaying,
+                        radioPlaybackError = radioPlaybackError,
                         onPlayPause = viewModel::togglePlayPause,
                         onSkipNext = viewModel::skipNext,
                         onSkipPrevious = viewModel::skipPrevious,
+                        onRadioPlayPause = viewModel::toggleRadioPlayPause,
+                        onRadioSeekNext = viewModel::seekRadioForward,
+                        onRadioSeekPrevious = viewModel::seekRadioBackward,
+                        onRadioFrequencyChange = viewModel::setRadioFrequency,
                         onNavigateToScreen = { screenId ->
                             when (screenId) {
                                 "navigation" -> selectedTab = BottomNavItem.NAVIGATION
@@ -171,6 +180,8 @@ fun DriveApp(
                                 Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
                             )
                         },
+                        mediaQueue = mediaQueue,
+                        onQueueItemSelected = viewModel::skipToQueueItem,
                         volume = mediaVolume,
                         onVolumeChange = viewModel::setMediaVolume,
                         currentStation = currentStation,

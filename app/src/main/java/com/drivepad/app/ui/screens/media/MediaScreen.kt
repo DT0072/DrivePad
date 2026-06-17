@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -30,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.drivepad.app.media.ExternalMediaQueueItem
 import com.drivepad.app.ui.components.GlassCard
 import com.drivepad.app.ui.theme.*
 import coil3.compose.AsyncImage
@@ -65,6 +67,8 @@ fun MediaScreen(
     onSourceSelected: (String) -> Unit,
     hasMediaControlAccess: Boolean,
     onRequestMediaControlAccess: () -> Unit,
+    mediaQueue: List<ExternalMediaQueueItem>,
+    onQueueItemSelected: (Long) -> Unit,
     volume: Float,
     onVolumeChange: (Float) -> Unit,
     modifier: Modifier = Modifier
@@ -262,18 +266,14 @@ fun MediaScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Recently played
-            Text(
-                text = "Recently Played",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "Play history will appear here",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            SyncedQueuePanel(
+                queue = mediaQueue,
+                activeTitle = nowPlayingTitle,
+                hasMediaControlAccess = hasMediaControlAccess,
+                onQueueItemSelected = onQueueItemSelected,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
             )
         }
 
@@ -500,6 +500,106 @@ fun MediaScreen(
                     contentDescription = "Raise volume",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SyncedQueuePanel(
+    queue: List<ExternalMediaQueueItem>,
+    activeTitle: String,
+    hasMediaControlAccess: Boolean,
+    onQueueItemSelected: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = "Synced List",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(DriveDimens.spacingXs))
+
+        if (queue.isEmpty()) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                padding = DriveDimens.spacingMd,
+                backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f),
+            ) {
+                Text(
+                    text = if (hasMediaControlAccess) {
+                        "No queue shared"
+                    } else {
+                        "Enable media access"
+                    },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (hasMediaControlAccess) {
+                        "Spotify and YouTube Music may share the current queue, but they do not expose your full private library through Android media controls."
+                    } else {
+                        "DrivePad needs notification/media access before it can read the active player queue."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            return
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingXs),
+        ) {
+            items(queue, key = { it.queueId }) { item ->
+                val isActive = item.title == activeTitle
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { onQueueItemSelected(item.queueId) },
+                    padding = DriveDimens.spacingSm,
+                    backgroundColor = if (isActive) {
+                        ElectricBlue.copy(alpha = 0.12f)
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f)
+                    },
+                    borderColor = if (isActive) ElectricBlue.copy(alpha = 0.35f) else Color.Transparent,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm),
+                    ) {
+                        Icon(
+                            imageVector = if (isActive) Icons.Filled.GraphicEq else Icons.AutoMirrored.Filled.QueueMusic,
+                            contentDescription = null,
+                            tint = if (isActive) ElectricBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.title,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isActive) ElectricBlue else MaterialTheme.colorScheme.onSurface,
+                                fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (item.subtitle.isNotBlank()) {
+                                Text(
+                                    text = item.subtitle,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

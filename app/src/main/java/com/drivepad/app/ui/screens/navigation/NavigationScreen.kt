@@ -86,12 +86,12 @@ fun NavigationScreen(
                     Icon(Icons.Filled.Map, null, tint = ElectricBlue)
                     Column {
                         Text(
-                            "Google Maps",
+                            "In-App Maps",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            "Embedded in DrivePad",
+                            "Search powered by OpenStreetMap",
                             style = MaterialTheme.typography.bodySmall,
                             color = EmeraldGreen,
                         )
@@ -155,7 +155,7 @@ fun NavigationScreen(
                     icon = Icons.Filled.LocalGasStation,
                     label = "Fuel",
                     color = AmberAccent,
-                    onClick = { setQuickDestination("Fuel near me") },
+                    onClick = { setQuickDestination("Petrol station near me") },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -163,7 +163,7 @@ fun NavigationScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             Text(
-                text = "Google Maps is loaded in embedded map mode for searching. Turn-by-turn navigation and Waze still open best in their native apps when needed.",
+                text = "This map stays inside DrivePad for searching. Turn-by-turn guidance still works best when opened in Google Maps or Waze later.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -244,6 +244,8 @@ private fun InAppNavigationView(
                 settings.setGeolocationEnabled(true)
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = true
+                settings.userAgentString =
+                    "Mozilla/5.0 Android DrivePad InAppMap ${settings.userAgentString}"
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(

@@ -8,7 +8,7 @@ class NavigationUrlsTest {
     @Test
     fun emptyDestination_opensMapWithoutLeavingDrivePad() {
         assertEquals(
-            "https://www.google.com/maps?output=embed&q=Current+location",
+            "https://www.openstreetmap.org/#map=13/3.1390/101.6869",
             buildNavigationUrl(),
         )
     }
@@ -17,7 +17,7 @@ class NavigationUrlsTest {
     fun destination_buildsEmbeddedSearchUrl() {
         val url = buildNavigationUrl("Gas station near me")
 
-        assertTrue(url.contains("output=embed"))
-        assertTrue(url.contains("q=Gas+station+near+me"))
+        assertTrue(url.startsWith("https://www.openstreetmap.org/search"))
+        assertTrue(url.contains("query=Gas+station+near+me"))
     }
 }
