@@ -81,6 +81,14 @@ class DrivePreferences(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[RADIO_COUNTRY] = code }
     }
 
+    val radioPresetsJson: Flow<String> = dataStore.data.map { prefs ->
+        prefs[RADIO_PRESETS_JSON] ?: ""
+    }
+
+    suspend fun setRadioPresetsJson(json: String) {
+        dataStore.edit { prefs -> prefs[RADIO_PRESETS_JSON] = json }
+    }
+
     // Last active screen
     val lastActiveScreen: Flow<String> = dataStore.data.map { prefs ->
         prefs[LAST_SCREEN] ?: "home"
@@ -99,6 +107,7 @@ class DrivePreferences(private val dataStore: DataStore<Preferences>) {
         private val WEATHER_LAT = doublePreferencesKey("weather_lat")
         private val WEATHER_LON = doublePreferencesKey("weather_lon")
         private val RADIO_COUNTRY = stringPreferencesKey("radio_country")
+        private val RADIO_PRESETS_JSON = stringPreferencesKey("radio_presets_json")
         private val LAST_SCREEN = stringPreferencesKey("last_screen")
     }
 }

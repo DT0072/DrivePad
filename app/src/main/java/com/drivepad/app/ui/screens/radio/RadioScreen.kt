@@ -260,53 +260,6 @@ fun RadioScreen(
                 }
             }
 
-            // Preset buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
-            ) {
-                for (i in 0 until 6) {
-                    val preset = presets.getOrNull(i)
-                    GlassCard(
-                        modifier = Modifier.weight(1f),
-                        onClick = { onPresetLoad(i) },
-                        padding = DriveDimens.spacingSm,
-                        backgroundColor = if (preset != null) {
-                            AmberAccent.copy(alpha = 0.1f)
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)
-                        }
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            if (i == 0 && preset != null) {
-                                Icon(
-                                    imageVector = Icons.Filled.Star,
-                                    contentDescription = "Favorite",
-                                    tint = AmberAccent,
-                                    modifier = Modifier.size(14.dp),
-                                )
-                            }
-                            Text(
-                                text = "P${i + 1}",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (preset != null) AmberAccent else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = preset?.name?.take(6) ?: "Empty",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                fontSize = 9.sp
-                            )
-                        }
-                    }
-                }
-            }
         }
 
         // Right: Station list + actions
@@ -352,6 +305,16 @@ fun RadioScreen(
                     }
                 }
             }
+
+            FavoritePresetsPanel(
+                presets = presets,
+                currentStation = currentStation,
+                onPresetLoad = onPresetLoad,
+                onPresetSave = onPresetSave,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(210.dp),
+            )
 
             Text(
                 text = "Stations (${stations.size})",
@@ -404,6 +367,92 @@ fun RadioScreen(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 10.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoritePresetsPanel(
+    presets: List<RadioStation?>,
+    currentStation: RadioStation?,
+    onPresetLoad: (Int) -> Unit,
+    onPresetSave: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingXs),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingXs),
+        ) {
+            Icon(Icons.Filled.Star, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(18.dp))
+            Text(
+                text = "Favorite Presets",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        for (row in 0 until 3) {
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingXs),
+            ) {
+                for (column in 0 until 2) {
+                    val index = row * 2 + column
+                    val preset = presets.getOrNull(index)
+                    GlassCard(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        onClick = { if (preset != null) onPresetLoad(index) },
+                        padding = DriveDimens.spacingSm,
+                        backgroundColor = if (preset != null) {
+                            AmberAccent.copy(alpha = 0.1f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f)
+                        },
+                        borderColor = if (preset != null) AmberAccent.copy(alpha = 0.3f) else Color.Transparent,
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingXs),
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "P${index + 1}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (preset != null) AmberAccent else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = preset?.name ?: "Empty",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            IconButton(
+                                onClick = { onPresetSave(index) },
+                                enabled = currentStation != null,
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Save,
+                                    contentDescription = "Save to P${index + 1}",
+                                    tint = if (currentStation != null) AmberAccent else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
                                 )
                             }
                         }

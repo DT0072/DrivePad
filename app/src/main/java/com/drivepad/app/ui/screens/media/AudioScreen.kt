@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.drivepad.app.data.api.RadioStation
+import com.drivepad.app.media.ExternalMediaQueueItem
 import com.drivepad.app.ui.screens.radio.RadioScreen
 import com.drivepad.app.ui.theme.DriveDimens
 
@@ -43,6 +44,8 @@ fun AudioScreen(
     onSourceSelected: (String) -> Unit,
     hasMediaControlAccess: Boolean,
     onRequestMediaControlAccess: () -> Unit,
+    mediaQueue: List<ExternalMediaQueueItem>,
+    onQueueItemSelected: (Long) -> Unit,
     volume: Float,
     onVolumeChange: (Float) -> Unit,
     currentStation: RadioStation?,
@@ -117,6 +120,8 @@ fun AudioScreen(
                 onSourceSelected = onSourceSelected,
                 hasMediaControlAccess = hasMediaControlAccess,
                 onRequestMediaControlAccess = onRequestMediaControlAccess,
+                mediaQueue = mediaQueue,
+                onQueueItemSelected = onQueueItemSelected,
                 volume = volume,
                 onVolumeChange = onVolumeChange,
                 modifier = Modifier.weight(1f),

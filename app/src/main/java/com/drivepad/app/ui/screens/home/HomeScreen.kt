@@ -25,8 +25,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.drivepad.app.data.api.RadioStation
 import com.drivepad.app.ui.components.GlassCard
 import com.drivepad.app.ui.theme.*
+import java.util.Locale
 
 // ============================================================
 // Home Dashboard Screen
@@ -44,9 +46,17 @@ fun HomeScreen(
     nowPlayingArtist: String,
     nowPlayingAlbumArt: Any?,
     isPlaying: Boolean,
+    currentStation: RadioStation?,
+    currentFrequency: Float,
+    isRadioPlaying: Boolean,
+    radioPlaybackError: String?,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
+    onRadioPlayPause: () -> Unit,
+    onRadioSeekNext: () -> Unit,
+    onRadioSeekPrevious: () -> Unit,
+    onRadioFrequencyChange: (Float) -> Unit,
     onNavigateToScreen: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -84,9 +94,17 @@ fun HomeScreen(
             artist = nowPlayingArtist,
             albumArtUrl = nowPlayingAlbumArt,
             isPlaying = isPlaying,
+            currentStation = currentStation,
+            currentFrequency = currentFrequency,
+            isRadioPlaying = isRadioPlaying,
+            radioPlaybackError = radioPlaybackError,
             onPlayPause = onPlayPause,
             onSkipNext = onSkipNext,
             onSkipPrevious = onSkipPrevious,
+            onRadioPlayPause = onRadioPlayPause,
+            onRadioSeekNext = onRadioSeekNext,
+            onRadioSeekPrevious = onRadioSeekPrevious,
+            onRadioFrequencyChange = onRadioFrequencyChange,
             onClick = { onNavigateToScreen("media") },
             modifier = Modifier
                 .weight(1f)
@@ -224,12 +242,24 @@ private fun NowPlayingCard(
     artist: String,
     albumArtUrl: Any?,
     isPlaying: Boolean,
+    currentStation: RadioStation?,
+    currentFrequency: Float,
+    isRadioPlaying: Boolean,
+    radioPlaybackError: String?,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
+    onRadioPlayPause: () -> Unit,
+    onRadioSeekNext: () -> Unit,
+    onRadioSeekPrevious: () -> Unit,
+    onRadioFrequencyChange: (Float) -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val showingRadio = isRadioPlaying || currentStation != null
+    val active = if (showingRadio) isRadioPlaying else isPlaying
+    val accentColor = if (showingRadio) AmberAccent else ElectricBlue
+
     // Pulsing glow animation for "now playing" indicator
     val infiniteTransition = rememberInfiniteTransition(label = "glow")
     val glowAlpha by infiniteTransition.animateFloat(
@@ -245,7 +275,7 @@ private fun NowPlayingCard(
     GlassCard(
         modifier = modifier,
         onClick = onClick,
-        glowColor = if (isPlaying) ElectricBlue.copy(alpha = glowAlpha * 0.15f) else Color.Transparent
+        glowColor = if (active) accentColor.copy(alpha = glowAlpha * 0.15f) else Color.Transparent
     ) {
         // Header
         Row(
@@ -258,20 +288,20 @@ private fun NowPlayingCard(
                 horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.MusicNote,
+                    imageVector = if (showingRadio) Icons.Filled.Radio else Icons.Filled.MusicNote,
                     contentDescription = null,
-                    tint = if (isPlaying) ElectricBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (active) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(DriveDimens.iconMedium)
                 )
                 Text(
-                    text = "Now Playing",
+                    text = if (showingRadio) "FM Live" else "Now Playing",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
             // Playing indicator dot
-            if (isPlaying) {
+            if (active) {
                 Box(
                     modifier = Modifier
                         .size(8.dp)
@@ -291,9 +321,9 @@ private fun NowPlayingCard(
                 .clip(RoundedCornerShape(16.dp))
                 .background(
                     Brush.radialGradient(
-                        colors = if (isPlaying) {
+                        colors = if (active) {
                             listOf(
-                                ElectricBlue.copy(alpha = 0.15f),
+                                accentColor.copy(alpha = 0.15f),
                                 MaterialTheme.colorScheme.surfaceContainerLow
                             )
                         } else {
@@ -306,7 +336,23 @@ private fun NowPlayingCard(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (albumArtUrl != null) {
+            if (showingRadio) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Filled.Radio,
+                        contentDescription = null,
+                        tint = AmberAccent,
+                        modifier = Modifier.size(72.dp)
+                    )
+                    Spacer(modifier = Modifier.height(DriveDimens.spacingSm))
+                    Text(
+                        text = String.format(Locale.US, "%.1f MHz", currentFrequency),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            } else if (albumArtUrl != null) {
                 AsyncImage(
                     model = albumArtUrl,
                     contentDescription = "Album artwork",
@@ -343,23 +389,66 @@ private fun NowPlayingCard(
         // Track info
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = title.ifEmpty { "No Track" },
+                text = if (showingRadio) {
+                    currentStation?.name ?: "No FM station"
+                } else {
+                    title.ifEmpty { "No Track" }
+                },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (showingRadio && currentStation != null) AmberAccent else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = artist.ifEmpty { "Unknown Artist" },
+                text = if (showingRadio) {
+                    radioPlaybackError
+                        ?: currentStation?.tags
+                            ?.split(",")
+                            ?.map { it.trim() }
+                            ?.filter { it.isNotBlank() }
+                            ?.take(3)
+                            ?.joinToString(" · ")
+                            .orEmpty()
+                            .ifBlank { "Internet FM radio" }
+                } else {
+                    artist.ifEmpty { "Unknown Artist" }
+                },
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                color = if (showingRadio && radioPlaybackError != null) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
 
         Spacer(modifier = Modifier.height(DriveDimens.spacingMd))
+
+        if (showingRadio) {
+            Slider(
+                value = currentFrequency.coerceIn(88f, 108f),
+                onValueChange = onRadioFrequencyChange,
+                valueRange = 88f..108f,
+                modifier = Modifier.fillMaxWidth(),
+                colors = SliderDefaults.colors(
+                    thumbColor = AmberAccent,
+                    activeTrackColor = AmberAccent,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("88.0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Tune FM", style = MaterialTheme.typography.labelSmall, color = AmberAccent)
+                Text("108.0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(modifier = Modifier.height(DriveDimens.spacingSm))
+        }
 
         // Playback controls
         Row(
@@ -368,7 +457,7 @@ private fun NowPlayingCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = onSkipPrevious,
+                onClick = if (showingRadio) onRadioSeekPrevious else onSkipPrevious,
                 modifier = Modifier.size(DriveDimens.largeTouchTarget)
             ) {
                 Icon(
@@ -386,14 +475,20 @@ private fun NowPlayingCard(
                 modifier = Modifier
                     .size(DriveDimens.extraLargeTouchTarget)
                     .clip(CircleShape)
-                    .background(ElectricBlue)
-                    .clickable { onPlayPause() },
+                    .background(if (showingRadio) AmberAccent else ElectricBlue)
+                    .clickable { if (showingRadio) onRadioPlayPause() else onPlayPause() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = Color.White,
+                    imageVector = if (showingRadio && isRadioPlaying) {
+                        Icons.Filled.Stop
+                    } else if (!showingRadio && isPlaying) {
+                        Icons.Filled.Pause
+                    } else {
+                        Icons.Filled.PlayArrow
+                    },
+                    contentDescription = if (active) "Pause" else "Play",
+                    tint = if (showingRadio) Color.Black else Color.White,
                     modifier = Modifier.size(DriveDimens.iconLarge)
                 )
             }
@@ -401,7 +496,7 @@ private fun NowPlayingCard(
             Spacer(modifier = Modifier.width(DriveDimens.spacingLg))
 
             IconButton(
-                onClick = onSkipNext,
+                onClick = if (showingRadio) onRadioSeekNext else onSkipNext,
                 modifier = Modifier.size(DriveDimens.largeTouchTarget)
             ) {
                 Icon(

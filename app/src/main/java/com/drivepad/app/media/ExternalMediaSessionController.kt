@@ -8,9 +8,16 @@ import android.media.MediaMetadata
 import android.media.VolumeProvider
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
+import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import androidx.core.app.NotificationManagerCompat
 import kotlin.math.roundToInt
+
+data class ExternalMediaQueueItem(
+    val queueId: Long,
+    val title: String,
+    val subtitle: String = "",
+)
 
 data class ExternalPlaybackSnapshot(
     val packageName: String = "",
@@ -24,6 +31,7 @@ data class ExternalPlaybackSnapshot(
     val durationMs: Long = 0L,
     val playbackSpeed: Float = 1f,
     val volume: Float = 0f,
+    val queue: List<ExternalMediaQueueItem> = emptyList(),
 )
 
 class ExternalMediaSessionController(
@@ -126,6 +134,10 @@ class ExternalMediaSessionController(
         }
     }
 
+    fun skipToQueueItem(queueId: Long) {
+        activeController?.transportControls?.skipToQueueItem(queueId)
+    }
+
     fun setVolume(progress: Float) {
         val normalized = progress.coerceIn(0f, 1f)
         val playbackInfo = activeController?.playbackInfo
@@ -216,8 +228,27 @@ class ExternalMediaSessionController(
                     ?.coerceAtLeast(0L) ?: 0L,
                 playbackSpeed = state?.playbackSpeed ?: 1f,
                 volume = volume.coerceIn(0f, 1f),
+                queue = controller.queue.toExternalQueue(),
             ),
         )
+    }
+
+    private fun List<MediaSession.QueueItem>?.toExternalQueue(): List<ExternalMediaQueueItem> {
+        return this.orEmpty()
+            .filter { it.queueId != MediaSession.QueueItem.UNKNOWN_ID.toLong() }
+            .take(30)
+            .map { item ->
+                val description = item.description
+                ExternalMediaQueueItem(
+                    queueId = item.queueId,
+                    title = description.title?.toString().orEmpty()
+                        .ifBlank { "Untitled track" },
+                    subtitle = listOfNotNull(
+                        description.subtitle?.toString()?.takeIf { it.isNotBlank() },
+                        description.description?.toString()?.takeIf { it.isNotBlank() },
+                    ).distinct().joinToString(" · "),
+                )
+            }
     }
 
     private fun getMusicStreamVolume(): Float {

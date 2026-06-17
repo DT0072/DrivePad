@@ -27,6 +27,7 @@ import com.drivepad.app.data.preferences.DrivePreferences
 import com.drivepad.app.data.preferences.ThemeMode
 import com.drivepad.app.data.preferences.dataStore
 import com.drivepad.app.media.ExternalMediaSessionController
+import com.drivepad.app.media.ExternalMediaQueueItem
 import com.drivepad.app.media.ExternalPlaybackSnapshot
 import com.drivepad.app.media.MediaNotificationListenerService
 import io.ktor.client.*
@@ -36,6 +37,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlin.coroutines.resume
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -57,6 +61,10 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         "spotify" to "com.spotify.music",
         "ytmusic" to "com.google.android.apps.youtube.music",
     )
+    private val radioPresetJson = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     private var mediaProgressJob: Job? = null
     private var mediaPositionMs = 0L
@@ -143,6 +151,9 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     private val _mediaVolume = MutableStateFlow(0f)
     val mediaVolume: StateFlow<Float> = _mediaVolume.asStateFlow()
 
+    private val _mediaQueue = MutableStateFlow<List<ExternalMediaQueueItem>>(emptyList())
+    val mediaQueue: StateFlow<List<ExternalMediaQueueItem>> = _mediaQueue.asStateFlow()
+
     // -- Radio State --
     private val _radioStations = MutableStateFlow<List<RadioStation>>(emptyList())
     val radioStations: StateFlow<List<RadioStation>> = _radioStations.asStateFlow()
@@ -179,6 +190,7 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     init {
+        loadRadioPresets()
         loadWeather()
         loadRadioStations()
         externalMediaController.refresh()
@@ -284,6 +296,18 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // -- Radio --
+    private fun loadRadioPresets() {
+        viewModelScope.launch {
+            preferences.radioPresetsJson.collect { saved ->
+                if (saved.isBlank()) return@collect
+                val decoded = runCatching {
+                    radioPresetJson.decodeFromString<List<RadioStation?>>(saved)
+                }.getOrNull() ?: return@collect
+                _radioPresets.value = List(6) { index -> decoded.getOrNull(index) }
+            }
+        }
+    }
+
     private fun loadRadioStations() {
         viewModelScope.launch {
             val countryCode = preferences.radioCountryCode.first()
@@ -355,10 +379,12 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun savePreset(slotIndex: Int) {
+        if (slotIndex !in 0 until 6) return
         val current = _currentStation.value ?: return
         val presets = _radioPresets.value.toMutableList()
         presets[slotIndex] = current
         _radioPresets.value = presets
+        persistRadioPresets(presets)
     }
 
     fun loadPreset(slotIndex: Int) {
@@ -374,6 +400,14 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val results = radioApi.searchStations(query, 30)
             _radioStations.value = results
+        }
+    }
+
+    private fun persistRadioPresets(presets: List<RadioStation?>) {
+        viewModelScope.launch {
+            preferences.setRadioPresetsJson(
+                radioPresetJson.encodeToString(List(6) { index -> presets.getOrNull(index) }),
+            )
         }
     }
 
@@ -424,6 +458,7 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         _nowPlayingAlbumArt.value = snapshot.albumArt ?: snapshot.albumArtUri.ifBlank { null }
         _isPlaying.value = snapshot.isPlaying
         _mediaVolume.value = snapshot.volume
+        _mediaQueue.value = snapshot.queue
 
         mediaPositionMs = snapshot.positionMs
         mediaDurationMs = snapshot.durationMs
@@ -447,6 +482,10 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+    }
+
+    fun skipToQueueItem(queueId: Long) {
+        externalMediaController.skipToQueueItem(queueId)
     }
 
     private fun publishMediaProgress(positionMs: Long) {
