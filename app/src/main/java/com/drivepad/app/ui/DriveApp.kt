@@ -65,6 +65,9 @@ fun DriveApp(
 
     // Collect states
     val weather by viewModel.weather.collectAsStateWithLifecycle()
+    val navigationLocation by viewModel.navigationLocation.collectAsStateWithLifecycle()
+    val isNavigationSearching by viewModel.isNavigationSearching.collectAsStateWithLifecycle()
+    val navigationSearchError by viewModel.navigationSearchError.collectAsStateWithLifecycle()
     val nowPlayingTitle by viewModel.nowPlayingTitle.collectAsStateWithLifecycle()
     val nowPlayingArtist by viewModel.nowPlayingArtist.collectAsStateWithLifecycle()
     val nowPlayingAlbum by viewModel.nowPlayingAlbum.collectAsStateWithLifecycle()
@@ -129,6 +132,9 @@ fun DriveApp(
                             ?.takeIf { it.isNotBlank() }
                             ?.let { "Live · $it" }
                             ?: "Updating live weather",
+                        navigationLocation = navigationLocation,
+                        isNavigationSearching = isNavigationSearching,
+                        navigationSearchError = navigationSearchError,
                         nowPlayingTitle = nowPlayingTitle,
                         nowPlayingArtist = nowPlayingArtist,
                         nowPlayingAlbumArt = nowPlayingAlbumArt,
@@ -137,6 +143,7 @@ fun DriveApp(
                         currentFrequency = currentFrequency,
                         isRadioPlaying = isRadioPlaying,
                         radioPlaybackError = radioPlaybackError,
+                        radioPresets = radioPresets,
                         onPlayPause = viewModel::togglePlayPause,
                         onSkipNext = viewModel::skipNext,
                         onSkipPrevious = viewModel::skipPrevious,
@@ -144,6 +151,8 @@ fun DriveApp(
                         onRadioSeekNext = viewModel::seekRadioForward,
                         onRadioSeekPrevious = viewModel::seekRadioBackward,
                         onRadioFrequencyChange = viewModel::setRadioFrequency,
+                        onPresetLoad = viewModel::loadPreset,
+                        onNavigationSearch = viewModel::searchNavigationDestination,
                         onNavigateToScreen = { screenId ->
                             when (screenId) {
                                 "navigation" -> selectedTab = BottomNavItem.NAVIGATION
@@ -156,7 +165,12 @@ fun DriveApp(
                         }
                     )
 
-                    BottomNavItem.NAVIGATION -> NavigationScreen()
+                    BottomNavItem.NAVIGATION -> NavigationScreen(
+                        location = navigationLocation,
+                        isSearching = isNavigationSearching,
+                        searchError = navigationSearchError,
+                        onSearch = viewModel::searchNavigationDestination,
+                    )
 
                     BottomNavItem.MEDIA -> AudioScreen(
                         nowPlayingTitle = nowPlayingTitle,
@@ -233,7 +247,9 @@ fun DriveApp(
         // Bottom Navigation Bar
         DriveBottomNavBar(
             selectedItem = selectedTab,
-            onItemSelected = { selectedTab = it }
+            onItemSelected = { selectedTab = it },
+            volume = mediaVolume,
+            onVolumeChange = viewModel::setMediaVolume,
         )
     }
 }

@@ -6,8 +6,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.location.Address
+import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import android.os.CancellationSignal
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
@@ -30,19 +33,24 @@ import com.drivepad.app.media.ExternalMediaSessionController
 import com.drivepad.app.media.ExternalMediaQueueItem
 import com.drivepad.app.media.ExternalPlaybackSnapshot
 import com.drivepad.app.media.MediaNotificationListenerService
+import com.drivepad.app.ui.screens.navigation.DefaultNavigationMapLocation
+import com.drivepad.app.ui.screens.navigation.NavigationMapLocation
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.coroutines.resume
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import java.util.Locale
 
 /**
  * Main ViewModel for the DrivePad application.
@@ -113,6 +121,19 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     private val _weather = MutableStateFlow<WeatherData?>(null)
     val weather: StateFlow<WeatherData?> = _weather.asStateFlow()
 
+    // -- Navigation State --
+    private val _navigationLocation = MutableStateFlow(DefaultNavigationMapLocation)
+    val navigationLocation: StateFlow<NavigationMapLocation> =
+        _navigationLocation.asStateFlow()
+
+    private val _isNavigationSearching = MutableStateFlow(false)
+    val isNavigationSearching: StateFlow<Boolean> =
+        _isNavigationSearching.asStateFlow()
+
+    private val _navigationSearchError = MutableStateFlow<String?>(null)
+    val navigationSearchError: StateFlow<String?> =
+        _navigationSearchError.asStateFlow()
+
     // -- Media State --
     private val _nowPlayingTitle = MutableStateFlow("")
     val nowPlayingTitle: StateFlow<String> = _nowPlayingTitle.asStateFlow()
@@ -175,7 +196,7 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
     // -- Settings State --
     val themeMode: StateFlow<ThemeMode> = preferences.themeMode
-        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.AUTO)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.DARK)
 
     val launcherModeEnabled: StateFlow<Boolean> = preferences.launcherModeEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -508,6 +529,58 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         return "$minutes:${seconds.toString().padStart(2, '0')}"
+    }
+
+    // -- Navigation --
+    fun searchNavigationDestination(query: String) {
+        val destination = query.trim()
+        if (destination.isBlank() || _isNavigationSearching.value) return
+
+        viewModelScope.launch {
+            _isNavigationSearching.value = true
+            _navigationSearchError.value = null
+            val address = runCatching { geocode(destination) }.getOrNull()
+            if (address == null) {
+                _navigationSearchError.value = "Place not found. Try a more specific destination."
+            } else {
+                _navigationLocation.value = NavigationMapLocation(
+                    latitude = address.latitude,
+                    longitude = address.longitude,
+                    label = address.featureName
+                        ?.takeIf { it.isNotBlank() }
+                        ?: destination,
+                )
+            }
+            _isNavigationSearching.value = false
+        }
+    }
+
+    private suspend fun geocode(query: String): Address? {
+        val geocoder = Geocoder(getApplication(), Locale.getDefault())
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            suspendCancellableCoroutine { continuation ->
+                geocoder.getFromLocationName(
+                    query,
+                    1,
+                    object : Geocoder.GeocodeListener {
+                        override fun onGeocode(addresses: MutableList<Address>) {
+                            if (continuation.isActive) {
+                                continuation.resume(addresses.firstOrNull())
+                            }
+                        }
+
+                        override fun onError(errorMessage: String?) {
+                            if (continuation.isActive) continuation.resume(null)
+                        }
+                    },
+                )
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            withContext(Dispatchers.IO) {
+                geocoder.getFromLocationName(query, 1)?.firstOrNull()
+            }
+        }
     }
 
     // -- Settings --

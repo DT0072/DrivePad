@@ -8,13 +8,13 @@ val DriveShapes = Shapes(
     // Small buttons, chips
     extraSmall = RoundedCornerShape(8.dp),
     // Standard cards, input fields
-    small = RoundedCornerShape(12.dp),
+    small = RoundedCornerShape(8.dp),
     // Dashboard cards, panels
-    medium = RoundedCornerShape(16.dp),
+    medium = RoundedCornerShape(10.dp),
     // Large modal cards, dialogs
-    large = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(12.dp),
     // Full-width bottom sheets, navigation bar
-    extraLarge = RoundedCornerShape(24.dp)
+    extraLarge = RoundedCornerShape(14.dp)
 )
 
 // Automotive-specific dimensions
@@ -39,11 +39,11 @@ object DriveDimens {
     val cardBorderWidth = 1.dp
 
     // Bottom navigation
-    val bottomNavHeight = 72.dp
-    val bottomNavIconSize = 28.dp
+    val bottomNavHeight = 76.dp
+    val bottomNavIconSize = 26.dp
 
     // Status bar
-    val statusBarHeight = 48.dp
+    val statusBarHeight = 50.dp
 
     // Icon sizes
     val iconSmall = 20.dp

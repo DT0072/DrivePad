@@ -4,237 +4,190 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.webkit.GeolocationPermissions
-import android.webkit.WebSettings
-import android.webkit.WebChromeClient
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.graphics.Color as AndroidColor
+import android.webkit.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.drivepad.app.ui.components.GlassCard
 import com.drivepad.app.ui.theme.*
-
-// ============================================================
-// Navigation Hub Screen
-// ============================================================
+import org.json.JSONObject
 
 @Composable
 fun NavigationScreen(
-    modifier: Modifier = Modifier
+    location: NavigationMapLocation,
+    isSearching: Boolean,
+    searchError: String?,
+    onSearch: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    var destination by rememberSaveable { mutableStateOf<String?>(null) }
-    var destinationInput by rememberSaveable { mutableStateOf("") }
-    fun searchDestination(value: String) {
-        if (value.isNotBlank()) {
-            destination = value.trim()
-        }
-    }
-    fun setQuickDestination(value: String) {
-        destinationInput = value
-        destination = value
-    }
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) {}
+    var query by rememberSaveable { mutableStateOf("") }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
     LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION,
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(DriveDimens.spacingLg),
-        horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingLg)
-    ) {
-        // Left: Embedded navigation controls
-        Column(
-            modifier = Modifier
-                .weight(0.32f)
-                .fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingMd)
-        ) {
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm),
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val compact = maxWidth < 980.dp
+        Row(Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .weight(if (compact) 0.62f else 0.7f)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+            ) {
+                InAppNavigationView(location = location, modifier = Modifier.fillMaxSize())
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = DarkSurface.copy(alpha = 0.96f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkDivider),
                 ) {
-                    Icon(Icons.Filled.Map, null, tint = ElectricBlue)
-                    Column {
-                        Text(
-                            "In-App Maps",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            "Search powered by OpenStreetMap",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = EmeraldGreen,
-                        )
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.TurnRight, null, tint = ElectricBlue, modifier = Modifier.size(34.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("250 m", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                Text(
+                                    location.label,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                        if (!compact) {
+                            Spacer(Modifier.height(12.dp))
+                            HorizontalDivider(color = DarkDivider)
+                            Spacer(Modifier.height(10.dp))
+                            Text("11:03 ETA   ·   21 min   ·   14 km", style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
             }
 
-            OutlinedTextField(
-                value = destinationInput,
-                onValueChange = { destinationInput = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Where to?") },
-                leadingIcon = { Icon(Icons.Filled.Search, null) },
-                trailingIcon = {
-                    IconButton(
-                        onClick = { searchDestination(destinationInput) },
-                    ) {
-                        Icon(Icons.Filled.Directions, "Start route")
-                    }
-                },
-                singleLine = true,
-            )
-
-            Button(
-                onClick = { searchDestination(destinationInput) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = destinationInput.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
-            ) {
-                Icon(Icons.Filled.Search, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Search in Maps")
-            }
-
-            Text(
-                text = "Quick Actions",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm)
-            ) {
-                QuickNavButton(
-                    icon = Icons.Filled.Home,
-                    label = "Home",
-                    color = ElectricBlue,
-                    onClick = { setQuickDestination("Home") },
-                    modifier = Modifier.weight(1f)
-                )
-                QuickNavButton(
-                    icon = Icons.Filled.Work,
-                    label = "Work",
-                    color = EmeraldGreen,
-                    onClick = { setQuickDestination("Work") },
-                    modifier = Modifier.weight(1f)
-                )
-                QuickNavButton(
-                    icon = Icons.Filled.LocalGasStation,
-                    label = "Fuel",
-                    color = AmberAccent,
-                    onClick = { setQuickDestination("Petrol station near me") },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Text(
-                text = "This map stays inside DrivePad for searching. Turn-by-turn guidance still works best when opened in Google Maps or Waze later.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        // Right: live embedded map
-        Column(
-            modifier = Modifier
-                .weight(0.68f)
-                .fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingLg)
-        ) {
-            // In-app map. Explicit app buttons on the left still open native map apps.
-            GlassCard(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                padding = 0.dp,
+                    .weight(if (compact) 0.38f else 0.3f)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(if (compact) 12.dp else 18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                InAppNavigationView(
-                    destination = destination,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Navigation, null, tint = ElectricBlue)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Navigation", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                }
+                Text("Search stays inside DrivePad", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Where to?") },
+                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    trailingIcon = {
+                        IconButton(onClick = { query.trim().takeIf { it.isNotEmpty() }?.let(onSearch) }) {
+                            if (isSearching) {
+                                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, "Search")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(8.dp),
+                )
+                Button(
+                    onClick = { query.trim().takeIf { it.isNotEmpty() }?.let(onSearch) },
+                    enabled = query.isNotBlank() && !isSearching,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = CockpitRed),
+                ) {
+                    Icon(Icons.Filled.Navigation, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Search Map")
+                }
+
+                searchError?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+
+                Text("Quick destinations", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                DestinationButton("Home", "Kuala Lumpur", Icons.Filled.Home, ElectricBlue) { onSearch("Kuala Lumpur") }
+                DestinationButton("Work", "Petronas Twin Towers", Icons.Filled.Work, EmeraldGreen) { onSearch("Petronas Twin Towers") }
+                DestinationButton("Fuel", "Nearby petrol stations", Icons.Filled.LocalGasStation, AmberAccent) { onSearch("Petrol station Kuala Lumpur") }
+
+                Spacer(Modifier.weight(1f))
+                Surface(shape = RoundedCornerShape(8.dp), color = DarkSurfaceVariant) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Map, null, tint = ElectricBlue)
+                        Spacer(Modifier.width(8.dp))
+                        Text("OpenStreetMap live view", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun QuickNavButton(
-    icon: ImageVector,
-    label: String,
-    color: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    GlassCard(
-        modifier = modifier,
+private fun DestinationButton(label: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().height(58.dp),
         onClick = onClick,
-        padding = DriveDimens.spacingMd
+        shape = RoundedCornerShape(8.dp),
+        color = DarkSurfaceVariant,
+        border = androidx.compose.foundation.BorderStroke(1.dp, DarkDivider),
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = color,
-                modifier = Modifier.size(DriveDimens.iconMedium)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+        Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, label, tint = color)
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(label, style = MaterialTheme.typography.titleSmall)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun InAppNavigationView(
-    destination: String?,
+fun InAppNavigationView(
+    location: NavigationMapLocation,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val targetUrl = remember(destination) { buildNavigationUrl(destination) }
-
+    val locationScript = remember(location) {
+        "window.drivePadShowLocation(" +
+            "${location.latitude},${location.longitude},${JSONObject.quote(location.label)}" +
+            ");"
+    }
     AndroidView(
         modifier = modifier,
         factory = {
@@ -244,16 +197,20 @@ private fun InAppNavigationView(
                 settings.setGeolocationEnabled(true)
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = true
-                settings.userAgentString =
-                    "Mozilla/5.0 Android DrivePad InAppMap ${settings.userAgentString}"
+                settings.allowFileAccess = true
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                setBackgroundColor(AndroidColor.BLACK)
                 webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(
-                        view: WebView,
-                        request: WebResourceRequest,
-                    ): Boolean {
+                    override fun onPageFinished(view: WebView, url: String?) {
+                        super.onPageFinished(view, url)
+                        (view.tag as? String)?.let { script ->
+                            view.evaluateJavascript(script, null)
+                        }
+                    }
+
+                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                         val uri = request.url
-                        if (uri.scheme == "http" || uri.scheme == "https") {
+                        if (uri.scheme == "http" || uri.scheme == "https" || uri.scheme == "file") {
                             return false
                         }
                         return try {
@@ -265,25 +222,19 @@ private fun InAppNavigationView(
                     }
                 }
                 webChromeClient = object : WebChromeClient() {
-                    override fun onGeolocationPermissionsShowPrompt(
-                        origin: String?,
-                        callback: GeolocationPermissions.Callback?,
-                    ) {
-                        val permissionGranted = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                        ) == PackageManager.PERMISSION_GRANTED
-                        callback?.invoke(origin, permissionGranted, false)
+                    override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
+                        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                        callback?.invoke(origin, granted, false)
                     }
                 }
-                tag = targetUrl
-                loadUrl(targetUrl)
+                tag = locationScript
+                loadUrl("file:///android_asset/drivepad_map.html")
             }
         },
-        update = { webView ->
-            if (webView.tag != targetUrl) {
-                webView.tag = targetUrl
-                webView.loadUrl(targetUrl)
+        update = { view ->
+            if (view.tag != locationScript) {
+                view.tag = locationScript
+                view.evaluateJavascript(locationScript, null)
             }
         },
     )

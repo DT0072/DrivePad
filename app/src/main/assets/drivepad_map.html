@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="stylesheet" href="leaflet/leaflet.css">
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: #071018;
+        }
+
+        #map {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #071018;
+        }
+
+        .leaflet-tile-pane {
+            filter: brightness(0.42) saturate(0.58) contrast(1.32) hue-rotate(170deg);
+        }
+
+        .leaflet-control-attribution {
+            padding: 3px 7px !important;
+            background: rgba(5, 10, 15, 0.82) !important;
+            color: #8d98a5 !important;
+            font: 11px system-ui, sans-serif !important;
+        }
+
+        .leaflet-control-attribution a {
+            color: #61a8ff !important;
+        }
+
+        .leaflet-control-zoom a {
+            border-color: #27313b !important;
+            background: #111820 !important;
+            color: #e9eef4 !important;
+        }
+
+        .leaflet-tooltip {
+            border: 1px solid #2c3946;
+            border-radius: 6px;
+            background: rgba(9, 15, 22, 0.94);
+            color: #f4f7fa;
+            font: 600 13px system-ui, sans-serif;
+            box-shadow: none;
+        }
+
+        #map-status {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            z-index: 1000;
+            transform: translate(-50%, -50%);
+            color: #8d98a5;
+            font: 600 14px system-ui, sans-serif;
+        }
+    </style>
+</head>
+<body>
+<div id="map" aria-label="Interactive OpenStreetMap"></div>
+<div id="map-status">Loading live map...</div>
+<script>
+    window.onerror = function() {
+        document.getElementById('map-status').textContent = 'Map unavailable';
+    };
+</script>
+<script src="leaflet/leaflet.js"></script>
+<script>
+    const status = document.getElementById('map-status');
+    const mapElement = document.getElementById('map');
+    function sizeMapCanvas() {
+        mapElement.style.width = window.innerWidth + 'px';
+        mapElement.style.height = window.innerHeight + 'px';
+    }
+    sizeMapCanvas();
+
+    const map = L.map('map', {
+        zoomControl: true,
+        attributionControl: true,
+        preferCanvas: true
+    }).setView([3.1390, 101.6869], 13);
+
+    const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    tiles.on('load', function() { status.style.display = 'none'; });
+    tiles.on('tileerror', function() { status.textContent = 'Map connection unavailable'; });
+
+    let destinationMarker = null;
+
+    window.addEventListener('resize', function() {
+        sizeMapCanvas();
+        map.invalidateSize();
+    });
+
+    window.drivePadShowLocation = function(latitude, longitude, label) {
+        const point = [latitude, longitude];
+        map.setView(point, 14, { animate: true });
+        if (destinationMarker) map.removeLayer(destinationMarker);
+        destinationMarker = L.marker(point).addTo(map);
+        if (label) destinationMarker.bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -12] });
+    };
+</script>
+</body>
+</html>
