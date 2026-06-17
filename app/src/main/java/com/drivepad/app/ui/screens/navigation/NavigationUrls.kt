@@ -1,16 +1,37 @@
 package com.drivepad.app.ui.screens.navigation
 
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
+import java.util.Locale
 
-internal fun buildNavigationUrl(destination: String? = null): String {
-    if (destination.isNullOrBlank()) {
-        return "https://www.openstreetmap.org/#map=13/3.1390/101.6869"
-    }
+data class NavigationMapLocation(
+    val latitude: Double,
+    val longitude: Double,
+    val label: String,
+)
 
-    val encodedDestination = URLEncoder.encode(
-        destination,
-        StandardCharsets.UTF_8.name(),
+val DefaultNavigationMapLocation = NavigationMapLocation(
+    latitude = 3.1390,
+    longitude = 101.6869,
+    label = "Kuala Lumpur",
+)
+
+internal fun buildNavigationUrl(
+    location: NavigationMapLocation = DefaultNavigationMapLocation,
+): String {
+    val longitudeSpan = 0.06
+    val latitudeSpan = 0.04
+    val boundingBox = listOf(
+        location.longitude - longitudeSpan,
+        location.latitude - latitudeSpan,
+        location.longitude + longitudeSpan,
+        location.latitude + latitudeSpan,
+    ).joinToString("%2C") { String.format(Locale.US, "%.6f", it) }
+    val marker = String.format(
+        Locale.US,
+        "%.6f%%2C%.6f",
+        location.latitude,
+        location.longitude,
     )
-    return "https://www.openstreetmap.org/search?query=$encodedDestination"
+
+    return "https://www.openstreetmap.org/export/embed.html" +
+        "?bbox=$boundingBox&layer=mapnik&marker=$marker"
 }

@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -95,6 +96,14 @@ fun AudioScreen(
                             contentDescription = null,
                         )
                     },
+                    colors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        activeContentColor = com.drivepad.app.ui.theme.CockpitRed,
+                        activeBorderColor = com.drivepad.app.ui.theme.CockpitRed,
+                        inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        inactiveBorderColor = MaterialTheme.colorScheme.outline,
+                    ),
                 ) {
                     Text(if (item == AudioMode.MUSIC) "Music" else "Radio")
                 }

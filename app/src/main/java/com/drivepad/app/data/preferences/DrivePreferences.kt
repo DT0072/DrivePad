@@ -13,7 +13,7 @@ class DrivePreferences(private val dataStore: DataStore<Preferences>) {
 
     // Theme
     val themeMode: Flow<ThemeMode> = dataStore.data.map { prefs ->
-        ThemeMode.entries.getOrElse(prefs[THEME_MODE] ?: 0) { ThemeMode.AUTO }
+        ThemeMode.entries.getOrElse(prefs[THEME_MODE] ?: ThemeMode.DARK.ordinal) { ThemeMode.DARK }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {

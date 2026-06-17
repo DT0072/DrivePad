@@ -200,18 +200,18 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "v1.0.0",
+                        text = "v1.2.1",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(DriveDimens.spacingSm))
                     Text(
-                        text = "Premium Infotainment System",
+                        text = "Single Canvas Infotainment",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "for Huawei MatePad 11",
+                        text = "Responsive 10.95-12.5 inch tablets",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

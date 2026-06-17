@@ -15,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -29,9 +28,9 @@ import com.drivepad.app.ui.theme.DriveDimens
 fun GlassCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    cornerRadius: Dp = 16.dp,
-    borderColor: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-    backgroundColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+    cornerRadius: Dp = 10.dp,
+    borderColor: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f),
+    backgroundColor: Color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.96f),
     glowColor: Color = Color.Transparent,
     padding: Dp = DriveDimens.cardPadding,
     content: @Composable ColumnScope.() -> Unit
@@ -54,15 +53,7 @@ fun GlassCard(
         modifier = modifier
             .scale(scale)
             .clip(shape)
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        backgroundColor,
-                        backgroundColor.copy(alpha = 0.4f)
-                    )
-                ),
-                shape = shape
-            )
+            .background(backgroundColor, shape)
             .border(
                 width = DriveDimens.cardBorderWidth,
                 color = borderColor,
@@ -91,7 +82,7 @@ fun GlassCard(
 fun GlassCardRow(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    cornerRadius: Dp = 16.dp,
+    cornerRadius: Dp = 10.dp,
     padding: Dp = DriveDimens.cardPadding,
     content: @Composable RowScope.() -> Unit
 ) {
@@ -113,10 +104,7 @@ fun GlassCardRow(
         modifier = modifier
             .scale(scale)
             .clip(shape)
-            .background(
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
-                shape = shape
-            )
+            .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.96f), shape)
             .border(
                 width = DriveDimens.cardBorderWidth,
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),

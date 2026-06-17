@@ -20,14 +20,14 @@ import androidx.core.view.WindowCompat
 // ============================================================
 
 private val DarkColorScheme = darkColorScheme(
-    primary = ElectricBlue,
+    primary = CockpitRed,
     onPrimary = Color.White,
-    primaryContainer = ElectricBlueDark,
-    onPrimaryContainer = ElectricBlueLight,
-    secondary = EmeraldGreen,
+    primaryContainer = CockpitRedDark,
+    onPrimaryContainer = Color.White,
+    secondary = ElectricBlue,
     onSecondary = Color.White,
-    secondaryContainer = EmeraldGreenDark,
-    onSecondaryContainer = EmeraldGreenLight,
+    secondaryContainer = ElectricBlueDark,
+    onSecondaryContainer = ElectricBlueLight,
     tertiary = AmberAccent,
     onTertiary = Color.Black,
     tertiaryContainer = AmberAccentDark,
