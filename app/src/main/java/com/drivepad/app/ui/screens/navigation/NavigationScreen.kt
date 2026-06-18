@@ -5,7 +5,6 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
-import android.net.Uri
 import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -29,7 +28,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,8 +86,6 @@ fun NavigationScreen(
                     originLocation = originLocation,
                     searchResults = searchResults,
                     onSelectResult = onSelectResult,
-                    onOpenGoogleMaps = { openUri(context, buildGoogleMapsDirectionsUri(location)) },
-                    onOpenWaze = { openUri(context, buildWazeUri(location)) },
                     modifier = Modifier.weight(1f),
                     compact = true,
                 )
@@ -114,8 +110,6 @@ fun NavigationScreen(
                     originLocation = originLocation,
                     searchResults = searchResults,
                     onSelectResult = onSelectResult,
-                    onOpenGoogleMaps = { openUri(context, buildGoogleMapsDirectionsUri(location)) },
-                    onOpenWaze = { openUri(context, buildWazeUri(location)) },
                     modifier = Modifier.weight(0.32f),
                     compact = false,
                 )
@@ -153,24 +147,15 @@ private fun MapPane(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(if (compact) 12.dp else 18.dp)
-                .fillMaxWidth(if (compact) 0.96f else 0.74f),
+                .fillMaxWidth(if (compact) 0.94f else 0.62f),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = DarkSurface.copy(alpha = 0.94f),
                 border = BorderStroke(1.dp, DarkDivider),
             ) {
                 Column(Modifier.padding(if (compact) 12.dp else 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Navigation, null, tint = ElectricBlue)
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text("Navigation", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                            Text("Search, pick the right place, then launch guidance", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-
                     OutlinedTextField(
                         value = query,
                         onValueChange = onQueryChange,
@@ -207,12 +192,11 @@ private fun MapPane(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(if (compact) 12.dp else 18.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             color = DarkSurface.copy(alpha = 0.96f),
             border = BorderStroke(1.dp, DarkDivider),
         ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Selected route", style = MaterialTheme.typography.titleSmall, color = AmberAccent, fontWeight = FontWeight.SemiBold)
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(location.label, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     routeSummary(originLocation, location),
@@ -230,8 +214,6 @@ private fun SearchPane(
     originLocation: NavigationMapLocation?,
     searchResults: List<NavigationSearchResult>,
     onSelectResult: (NavigationSearchResult) -> Unit,
-    onOpenGoogleMaps: () -> Unit,
-    onOpenWaze: () -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean,
 ) {
@@ -243,51 +225,27 @@ private fun SearchPane(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(16.dp),
             color = DarkSurface.copy(alpha = 0.94f),
             border = BorderStroke(1.dp, DarkDivider),
         ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Route options", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(location.label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(routeSummary(originLocation, location), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = onOpenGoogleMaps,
-                        modifier = Modifier.weight(1f).height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Icon(Icons.Filled.Map, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Google Maps")
-                    }
-                    Button(
-                        onClick = onOpenWaze,
-                        modifier = Modifier.weight(1f).height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = CockpitRed),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Icon(Icons.Filled.DirectionsCar, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Waze")
-                    }
-                }
             }
         }
 
-        Text("Search results", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (searchResults.isEmpty()) {
             Surface(
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
                 border = BorderStroke(1.dp, DarkDivider),
             ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Filled.Place, null, tint = ElectricBlue)
-                    Text("Search a destination to see matching places", style = MaterialTheme.typography.bodyMedium)
-                    Text("Tap the right result to lock the destination and show guidance on the map.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Text(
+                    text = "No search results yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(18.dp),
+                )
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
@@ -369,7 +327,7 @@ private fun QuickChip(label: String, onClick: () -> Unit) {
 }
 
 private fun routeSummary(origin: NavigationMapLocation?, destination: NavigationMapLocation): String {
-    if (origin == null) return "No origin locked yet. Search will center the selected place."
+    if (origin == null) return "Map centered on selected destination"
     val distanceKm = haversineKm(origin.latitude, origin.longitude, destination.latitude, destination.longitude)
     val minutes = (distanceKm * 2.0 + 3.0).roundToInt().coerceAtLeast(1)
     return String.format(
@@ -388,12 +346,6 @@ private fun haversineKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double):
         cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2.0)
     val c = 2 * atan2(sqrt(a), sqrt(1 - a))
     return r * c
-}
-
-private fun openUri(context: android.content.Context, uri: String) {
-    runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
-    }
 }
 
 @SuppressLint("SetJavaScriptEnabled")
