@@ -231,7 +231,7 @@ fun DriveApp(
                         onPresetSave = viewModel::savePreset,
                         onPresetLoad = viewModel::loadPreset,
                         onPresetRemove = viewModel::removePreset,
-                        onRadioSearch = { /* open search dialog */ },
+                        onRadioSearch = viewModel::searchRadioStations,
                         onAutoScan = viewModel::autoScanStations
                     )
 

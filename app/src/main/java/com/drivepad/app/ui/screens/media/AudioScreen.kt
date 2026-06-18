@@ -67,7 +67,7 @@ fun AudioScreen(
     onPresetSave: (Int) -> Unit,
     onPresetLoad: (Int) -> Unit,
     onPresetRemove: (Int) -> Unit,
-    onRadioSearch: () -> Unit,
+    onRadioSearch: (String) -> Unit,
     onAutoScan: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
