@@ -107,6 +107,25 @@ fun MediaScreen(
             else -> mediaSources
         }
     }
+    var showLibraryHint by remember { mutableStateOf(true) }
+    LaunchedEffect(activeMediaPackage, isPlaying, nowPlayingTitle) {
+        showLibraryHint = true
+        val autoHideLibrary = activeMediaPackage == "com.spotify.music" ||
+            activeMediaPackage == "com.google.android.apps.youtube.music"
+        if (autoHideLibrary && isPlaying && nowPlayingTitle.isNotBlank()) {
+            kotlinx.coroutines.delay(30_000)
+            if (isPlaying && activeMediaPackage.isNotBlank()) {
+                showLibraryHint = false
+            }
+        }
+    }
+    var scrubProgress by remember { mutableFloatStateOf(playbackProgress) }
+    var isScrubbing by remember { mutableStateOf(false) }
+    LaunchedEffect(playbackProgress, isScrubbing) {
+        if (!isScrubbing) {
+            scrubProgress = playbackProgress
+        }
+    }
 
     // Spinning disc animation
     val infiniteTransition = rememberInfiniteTransition(label = "disc")
@@ -204,7 +223,7 @@ fun MediaScreen(
                 }
             }
 
-            if (visibleSources.size == 1) {
+            if (visibleSources.size == 1 && showLibraryHint) {
                 val source = visibleSources.first()
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
@@ -362,8 +381,15 @@ fun MediaScreen(
             // Progress bar
             Column(modifier = Modifier.fillMaxWidth(0.8f)) {
                 Slider(
-                    value = playbackProgress,
-                    onValueChange = onSeek,
+                    value = scrubProgress,
+                    onValueChange = {
+                        isScrubbing = true
+                        scrubProgress = it
+                    },
+                    onValueChangeFinished = {
+                        isScrubbing = false
+                        onSeek(scrubProgress)
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     colors = SliderDefaults.colors(
                         thumbColor = ElectricBlue,
@@ -391,115 +417,119 @@ fun MediaScreen(
             Spacer(modifier = Modifier.height(DriveDimens.spacingLg))
 
             // Playback controls
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { /* shuffle */ },
-                    modifier = Modifier.size(DriveDimens.minTouchTarget)
+            Column(verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingMd)) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Shuffle,
-                        contentDescription = "Shuffle",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(DriveDimens.iconMedium)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(DriveDimens.spacingLg))
-
-                IconButton(
-                    onClick = onSkipPrevious,
-                    modifier = Modifier.size(DriveDimens.largeTouchTarget)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.SkipPrevious,
-                        contentDescription = "Previous",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(DriveDimens.iconLarge)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(DriveDimens.spacingMd))
-
-                // Big play/pause button
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(ElectricBlue, ElectricBlueDark)
-                            )
+                    IconButton(
+                        onClick = { /* shuffle */ },
+                        modifier = Modifier.size(DriveDimens.minTouchTarget)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Shuffle,
+                            contentDescription = "Shuffle",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(DriveDimens.iconMedium)
                         )
-                        .clickable { onPlayPause() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(40.dp)
-                    )
+                    }
+
+                    Spacer(modifier = Modifier.width(DriveDimens.spacingLg))
+
+                    IconButton(
+                        onClick = onSkipPrevious,
+                        modifier = Modifier.size(DriveDimens.largeTouchTarget)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.SkipPrevious,
+                            contentDescription = "Previous",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(DriveDimens.iconLarge)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(DriveDimens.spacingMd))
+
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(ElectricBlue, ElectricBlueDark)
+                                )
+                            )
+                            .clickable { onPlayPause() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            tint = Color.White,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(DriveDimens.spacingMd))
+
+                    IconButton(
+                        onClick = onSkipNext,
+                        modifier = Modifier.size(DriveDimens.largeTouchTarget)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.SkipNext,
+                            contentDescription = "Next",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(DriveDimens.iconLarge)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(DriveDimens.spacingLg))
+
+                    IconButton(
+                        onClick = { /* repeat */ },
+                        modifier = Modifier.size(DriveDimens.minTouchTarget)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Repeat,
+                            contentDescription = "Repeat",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(DriveDimens.iconMedium)
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.width(DriveDimens.spacingMd))
-
-                IconButton(
-                    onClick = onSkipNext,
-                    modifier = Modifier.size(DriveDimens.largeTouchTarget)
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(0.78f),
+                    padding = DriveDimens.spacingMd,
+                    backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.SkipNext,
-                        contentDescription = "Next",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(DriveDimens.iconLarge)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.VolumeDown,
+                            contentDescription = "Lower volume",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Slider(
+                            value = volume.coerceIn(0f, 1f),
+                            onValueChange = onVolumeChange,
+                            modifier = Modifier.weight(1f),
+                            colors = SliderDefaults.colors(
+                                thumbColor = ElectricBlue,
+                                activeTrackColor = ElectricBlue,
+                                inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            ),
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "Raise volume",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-
-                Spacer(modifier = Modifier.width(DriveDimens.spacingLg))
-
-                IconButton(
-                    onClick = { /* repeat */ },
-                    modifier = Modifier.size(DriveDimens.minTouchTarget)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Repeat,
-                        contentDescription = "Repeat",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(DriveDimens.iconMedium)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(DriveDimens.spacingMd))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(0.72f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(DriveDimens.spacingSm),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.VolumeDown,
-                    contentDescription = "Lower volume",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Slider(
-                    value = volume.coerceIn(0f, 1f),
-                    onValueChange = onVolumeChange,
-                    modifier = Modifier.weight(1f),
-                    colors = SliderDefaults.colors(
-                        thumbColor = ElectricBlue,
-                        activeTrackColor = ElectricBlue,
-                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-                )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = "Raise volume",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }

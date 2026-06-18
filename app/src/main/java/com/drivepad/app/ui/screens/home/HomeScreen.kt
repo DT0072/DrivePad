@@ -224,6 +224,9 @@ private fun ContextPanel(
     compact: Boolean,
 ) {
     var showRadio by remember(isRadioPlaying, isPlaying) { mutableStateOf(isRadioPlaying || !isPlaying) }
+    val activePresets = remember(presets) {
+        presets.withIndex().filter { it.value != null }
+    }
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surface)
@@ -299,44 +302,53 @@ private fun ContextPanel(
                     ) {
                         Icon(Icons.Filled.Star, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Save P1")
+                        Text("Save favorite")
                     }
                     OutlinedButton(
-                        onClick = { onPresetLoad(0) },
-                        enabled = presets.firstOrNull() != null,
+                        onClick = { activePresets.firstOrNull()?.let { onPresetLoad(it.index) } },
+                        enabled = activePresets.isNotEmpty(),
                         modifier = Modifier.weight(0.9f).height(if (compact) 44.dp else 48.dp),
                     ) {
-                        Text("Load P1")
+                        Text("Load favorite")
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    repeat(6) { index ->
-                        val preset = presets.getOrNull(index)
-                        Surface(
-                            modifier = Modifier.weight(1f).height(if (compact) 52.dp else 60.dp),
-                            onClick = {
-                                if (preset != null) {
-                                    onPresetLoad(index)
-                                } else if (station != null) {
-                                    onPresetSave(index)
-                                }
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (preset?.stationUuid == station?.stationUuid) AmberAccent.copy(alpha = 0.12f) else DarkSurfaceVariant,
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (preset?.stationUuid == station?.stationUuid) AmberAccent else DarkDivider,
-                            ),
-                        ) {
-                            Column(
-                                Modifier.fillMaxSize().padding(vertical = 6.dp, horizontal = 4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
+                if (activePresets.isNotEmpty()) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        activePresets.forEach { (index, preset) ->
+                            Surface(
+                                modifier = Modifier.weight(1f).height(if (compact) 52.dp else 60.dp),
+                                onClick = { onPresetLoad(index) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (preset?.stationUuid == station?.stationUuid) AmberAccent.copy(alpha = 0.12f) else DarkSurfaceVariant,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (preset?.stationUuid == station?.stationUuid) AmberAccent else DarkDivider,
+                                ),
                             ) {
-                                Text("P${index + 1}", style = MaterialTheme.typography.labelMedium, color = if (preset != null) AmberAccent else MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (!compact) Text(preset?.getDisplayFrequency().orEmpty().ifBlank { "Tap to save" }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Column(
+                                    Modifier.fillMaxSize().padding(vertical = 6.dp, horizontal = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                ) {
+                                    Text("P${index + 1}", style = MaterialTheme.typography.labelMedium, color = if (preset != null) AmberAccent else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if (!compact) Text(preset?.getDisplayFrequency().orEmpty(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
                             }
                         }
+                    }
+                } else {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = DarkSurfaceVariant,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, DarkDivider),
+                    ) {
+                        Text(
+                            text = "No saved favorites yet. Save the current station to see it here.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(12.dp),
+                        )
                     }
                 }
             }
