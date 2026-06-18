@@ -35,3 +35,27 @@ internal fun buildNavigationUrl(
     return "https://www.openstreetmap.org/export/embed.html" +
         "?bbox=$boundingBox&layer=mapnik&marker=$marker"
 }
+
+internal fun buildGoogleMapsDirectionsUri(
+    location: NavigationMapLocation = DefaultNavigationMapLocation,
+): String {
+    val destination = String.format(
+        Locale.US,
+        "%.6f,%.6f",
+        location.latitude,
+        location.longitude,
+    )
+    return "https://www.google.com/maps/dir/?api=1&destination=$destination&travelmode=driving"
+}
+
+internal fun buildWazeUri(
+    location: NavigationMapLocation = DefaultNavigationMapLocation,
+): String {
+    val destination = String.format(
+        Locale.US,
+        "%.6f,%.6f",
+        location.latitude,
+        location.longitude,
+    )
+    return "https://waze.com/ul?ll=$destination&navigate=yes"
+}

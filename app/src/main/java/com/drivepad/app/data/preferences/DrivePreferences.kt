@@ -89,6 +89,23 @@ class DrivePreferences(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[RADIO_PRESETS_JSON] = json }
     }
 
+    // Driver profile
+    val driverName: Flow<String> = dataStore.data.map { prefs ->
+        prefs[DRIVER_NAME] ?: "Driver"
+    }
+
+    suspend fun setDriverName(name: String) {
+        dataStore.edit { prefs -> prefs[DRIVER_NAME] = name }
+    }
+
+    val driverSignedIn: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[DRIVER_SIGNED_IN] ?: false
+    }
+
+    suspend fun setDriverSignedIn(signedIn: Boolean) {
+        dataStore.edit { prefs -> prefs[DRIVER_SIGNED_IN] = signedIn }
+    }
+
     // Last active screen
     val lastActiveScreen: Flow<String> = dataStore.data.map { prefs ->
         prefs[LAST_SCREEN] ?: "home"
@@ -108,6 +125,8 @@ class DrivePreferences(private val dataStore: DataStore<Preferences>) {
         private val WEATHER_LON = doublePreferencesKey("weather_lon")
         private val RADIO_COUNTRY = stringPreferencesKey("radio_country")
         private val RADIO_PRESETS_JSON = stringPreferencesKey("radio_presets_json")
+        private val DRIVER_NAME = stringPreferencesKey("driver_name")
+        private val DRIVER_SIGNED_IN = booleanPreferencesKey("driver_signed_in")
         private val LAST_SCREEN = stringPreferencesKey("last_screen")
     }
 }
