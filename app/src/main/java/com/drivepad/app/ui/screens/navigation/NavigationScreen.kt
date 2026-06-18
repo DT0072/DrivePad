@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
+import android.net.Uri
 import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -86,6 +87,7 @@ fun NavigationScreen(
                     originLocation = originLocation,
                     searchResults = searchResults,
                     onSelectResult = onSelectResult,
+                    onStartGuidance = { startGoogleNavigation(context, location) },
                     modifier = Modifier.weight(1f),
                     compact = true,
                 )
@@ -110,6 +112,7 @@ fun NavigationScreen(
                     originLocation = originLocation,
                     searchResults = searchResults,
                     onSelectResult = onSelectResult,
+                    onStartGuidance = { startGoogleNavigation(context, location) },
                     modifier = Modifier.weight(0.32f),
                     compact = false,
                 )
@@ -214,6 +217,7 @@ private fun SearchPane(
     originLocation: NavigationMapLocation?,
     searchResults: List<NavigationSearchResult>,
     onSelectResult: (NavigationSearchResult) -> Unit,
+    onStartGuidance: () -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean,
 ) {
@@ -232,6 +236,16 @@ private fun SearchPane(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(location.label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(routeSummary(originLocation, location), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Button(
+                    onClick = onStartGuidance,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(Icons.Filled.Navigation, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Start guidance")
+                }
             }
         }
 
@@ -356,8 +370,13 @@ fun InAppNavigationView(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val mapUrl = remember(location, originLocation) {
-        buildGoogleMapsWebUrl(location, originLocation)
+    val mapScript = remember(location, originLocation) {
+        if (originLocation == null) {
+            "window.drivePadShowLocation(${location.latitude},${location.longitude},${jsString(location.label)});"
+        } else {
+            "window.drivePadShowRoute(${originLocation.latitude},${originLocation.longitude}," +
+                "${location.latitude},${location.longitude},${jsString(location.label)});"
+        }
     }
     AndroidView(
         modifier = modifier,
@@ -369,6 +388,7 @@ fun InAppNavigationView(
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = true
                 settings.allowFileAccess = true
+                settings.allowUniversalAccessFromFileURLs = true
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                 setBackgroundColor(AndroidColor.BLACK)
                 webViewClient = object : WebViewClient() {
@@ -398,15 +418,44 @@ fun InAppNavigationView(
                         callback?.invoke(origin, granted, false)
                     }
                 }
-                tag = mapUrl
-                loadUrl(mapUrl)
+                tag = mapScript
+                loadUrl("file:///android_asset/drivepad_map.html")
             }
         },
         update = { view ->
-            if (view.tag != mapUrl) {
-                view.tag = mapUrl
-                view.loadUrl(mapUrl)
+            if (view.tag != mapScript) {
+                view.tag = mapScript
+                view.evaluateJavascript(mapScript, null)
             }
         },
     )
+}
+
+private fun jsString(value: String): String =
+    "\"" + value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", " ") + "\""
+
+private fun startGoogleNavigation(context: android.content.Context, location: NavigationMapLocation) {
+    val destination = String.format(
+        java.util.Locale.US,
+        "%f,%f",
+        location.latitude,
+        location.longitude,
+    )
+    val navigationIntent = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("google.navigation:q=$destination&mode=d"),
+    ).apply {
+        setPackage("com.google.android.apps.maps")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    val fallbackIntent = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$destination&travelmode=driving"),
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    runCatching { context.startActivity(navigationIntent) }
+        .recoverCatching { context.startActivity(fallbackIntent) }
 }

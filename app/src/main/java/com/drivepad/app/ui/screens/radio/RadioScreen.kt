@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,10 +55,48 @@ fun RadioScreen(
     onPresetSave: (Int) -> Unit,
     onPresetLoad: (Int) -> Unit,
     onPresetRemove: (Int) -> Unit,
-    onSearch: () -> Unit,
+    onSearch: (String) -> Unit,
     onAutoScan: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showSearchDialog by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+
+    if (showSearchDialog) {
+        AlertDialog(
+            onDismissRequest = { showSearchDialog = false },
+            icon = { Icon(Icons.Filled.Radio, contentDescription = null) },
+            title = { Text("Search radio stations") },
+            text = {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Station, city, or genre") },
+                    placeholder = { Text("HITZ, Kuala Lumpur, jazz") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onSearch(searchQuery.trim())
+                        showSearchDialog = false
+                    },
+                    enabled = searchQuery.isNotBlank(),
+                ) {
+                    Text("Search")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSearchDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
     Row(
         modifier = modifier
             .fillMaxSize()
@@ -288,7 +327,7 @@ fun RadioScreen(
             ) {
                 GlassCard(
                     modifier = Modifier.weight(1f),
-                    onClick = onSearch,
+                    onClick = { showSearchDialog = true },
                     padding = DriveDimens.spacingSm
                 ) {
                     Row(

@@ -133,12 +133,32 @@
 
         routeLine = L.polyline([origin, destination], {
             color: '#ffb347',
-            weight: 4,
-            opacity: 0.9,
-            dashArray: '10,10',
+            weight: 6,
+            opacity: 0.95,
         }).addTo(map);
 
         map.fitBounds(L.latLngBounds([origin, destination]).pad(0.2), { animate: true });
+
+        const routeUrl = 'https://router.project-osrm.org/route/v1/driving/' +
+            originLongitude + ',' + originLatitude + ';' +
+            destinationLongitude + ',' + destinationLatitude +
+            '?overview=full&geometries=geojson';
+
+        fetch(routeUrl)
+            .then(function(response) {
+                if (!response.ok) throw new Error('Route request failed');
+                return response.json();
+            })
+            .then(function(result) {
+                const coordinates = result.routes && result.routes[0] && result.routes[0].geometry.coordinates;
+                if (!coordinates || !coordinates.length) return;
+                const roadRoute = coordinates.map(function(point) { return [point[1], point[0]]; });
+                routeLine.setLatLngs(roadRoute);
+                map.fitBounds(routeLine.getBounds().pad(0.12), { animate: true });
+            })
+            .catch(function() {
+                // Keep the direct preview visible when live road routing is unavailable.
+            });
     };
 </script>
 </body>
