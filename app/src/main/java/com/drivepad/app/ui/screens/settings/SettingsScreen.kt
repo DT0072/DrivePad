@@ -123,15 +123,6 @@ fun SettingsScreen(
                         onReturnToLauncher = onReturnToLauncher,
                         onExitApp = onExitApp,
                     )
-                    GlassCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        backgroundColor = DarkSurface.copy(alpha = 0.94f),
-                        borderColor = DarkDivider,
-                    ) {
-                        Text("DrivePad", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(8.dp))
-                        Text("Single-canvas infotainment with a Proton-inspired cockpit profile and responsive tablet layout.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
                 }
             }
         }
@@ -176,11 +167,6 @@ private fun DriverProfileCard(
                         leadingIcon = { Icon(Icons.Filled.Badge, null, modifier = Modifier.size(16.dp)) },
                     )
                 }
-                Text(
-                    "A clean login surface for the active driver, styled like a modern Proton eMas / X50 profile panel.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(

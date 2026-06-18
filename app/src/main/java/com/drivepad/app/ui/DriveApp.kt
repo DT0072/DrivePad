@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -98,6 +99,10 @@ fun DriveApp(
     val autoLaunchOnBoot by viewModel.autoLaunchOnBoot.collectAsStateWithLifecycle()
     val driverName by viewModel.driverName.collectAsStateWithLifecycle()
     val driverSignedIn by viewModel.driverSignedIn.collectAsStateWithLifecycle()
+
+    BackHandler(enabled = launcherModeEnabled && selectedTab != BottomNavItem.HOME) {
+        selectedTab = BottomNavItem.HOME
+    }
 
     Column(
         modifier = modifier
@@ -241,12 +246,15 @@ fun DriveApp(
                         onDriverNameChanged = viewModel::setDriverName,
                         onDriverSignedInChanged = viewModel::setDriverSignedIn,
                         onReturnToLauncher = {
-                            // Launch the default home launcher
-                            val intent = Intent(Intent.ACTION_MAIN).apply {
-                                addCategory(Intent.CATEGORY_HOME)
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            if (launcherModeEnabled) {
+                                selectedTab = BottomNavItem.HOME
+                            } else {
+                                val intent = Intent(Intent.ACTION_MAIN).apply {
+                                    addCategory(Intent.CATEGORY_HOME)
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
                             }
-                            context.startActivity(intent)
                         },
                         onExitApp = {
                             (context as? Activity)?.finishAndRemoveTask()
