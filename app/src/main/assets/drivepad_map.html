@@ -94,6 +94,8 @@
     tiles.on('tileerror', function() { status.textContent = 'Map connection unavailable'; });
 
     let destinationMarker = null;
+    let originMarker = null;
+    let routeLine = null;
 
     window.addEventListener('resize', function() {
         sizeMapCanvas();
@@ -104,8 +106,39 @@
         const point = [latitude, longitude];
         map.setView(point, 14, { animate: true });
         if (destinationMarker) map.removeLayer(destinationMarker);
+        if (originMarker) map.removeLayer(originMarker);
+        if (routeLine) map.removeLayer(routeLine);
         destinationMarker = L.marker(point).addTo(map);
         if (label) destinationMarker.bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -12] });
+    };
+
+    window.drivePadShowRoute = function(originLatitude, originLongitude, destinationLatitude, destinationLongitude, label) {
+        const origin = [originLatitude, originLongitude];
+        const destination = [destinationLatitude, destinationLongitude];
+
+        if (destinationMarker) map.removeLayer(destinationMarker);
+        if (originMarker) map.removeLayer(originMarker);
+        if (routeLine) map.removeLayer(routeLine);
+
+        originMarker = L.circleMarker(origin, {
+            radius: 7,
+            color: '#61a8ff',
+            weight: 2,
+            fillColor: '#61a8ff',
+            fillOpacity: 0.3,
+        }).addTo(map);
+
+        destinationMarker = L.marker(destination).addTo(map);
+        if (label) destinationMarker.bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -12] });
+
+        routeLine = L.polyline([origin, destination], {
+            color: '#ffb347',
+            weight: 4,
+            opacity: 0.9,
+            dashArray: '10,10',
+        }).addTo(map);
+
+        map.fitBounds(L.latLngBounds([origin, destination]).pad(0.2), { animate: true });
     };
 </script>
 </body>

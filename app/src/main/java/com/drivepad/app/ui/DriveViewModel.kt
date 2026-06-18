@@ -33,6 +33,7 @@ import com.drivepad.app.media.ExternalMediaSessionController
 import com.drivepad.app.media.ExternalMediaQueueItem
 import com.drivepad.app.media.ExternalPlaybackSnapshot
 import com.drivepad.app.media.MediaNotificationListenerService
+import com.drivepad.app.navigation.NavigationSearchResult
 import com.drivepad.app.ui.screens.navigation.DefaultNavigationMapLocation
 import com.drivepad.app.ui.screens.navigation.NavigationMapLocation
 import io.ktor.client.*
@@ -134,6 +135,14 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     val navigationSearchError: StateFlow<String?> =
         _navigationSearchError.asStateFlow()
 
+    private val _navigationSearchResults = MutableStateFlow<List<NavigationSearchResult>>(emptyList())
+    val navigationSearchResults: StateFlow<List<NavigationSearchResult>> =
+        _navigationSearchResults.asStateFlow()
+
+    private val _navigationOrigin = MutableStateFlow<NavigationMapLocation?>(null)
+    val navigationOrigin: StateFlow<NavigationMapLocation?> =
+        _navigationOrigin.asStateFlow()
+
     // -- Media State --
     private val _nowPlayingTitle = MutableStateFlow("")
     val nowPlayingTitle: StateFlow<String> = _nowPlayingTitle.asStateFlow()
@@ -193,6 +202,12 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _radioPresets = MutableStateFlow<List<RadioStation?>>(List(6) { null })
     val radioPresets: StateFlow<List<RadioStation?>> = _radioPresets.asStateFlow()
+
+    val driverName: StateFlow<String> = preferences.driverName
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "Driver")
+
+    val driverSignedIn: StateFlow<Boolean> = preferences.driverSignedIn
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     // -- Settings State --
     val themeMode: StateFlow<ThemeMode> = preferences.themeMode
@@ -539,38 +554,64 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isNavigationSearching.value = true
             _navigationSearchError.value = null
-            val address = runCatching { geocode(destination) }.getOrNull()
-            if (address == null) {
-                _navigationSearchError.value = "Place not found. Try a more specific destination."
-            } else {
-                _navigationLocation.value = NavigationMapLocation(
+            val addresses = runCatching { geocode(destination, 5) }.getOrNull().orEmpty()
+            val results = addresses.map { address ->
+                NavigationSearchResult(
                     latitude = address.latitude,
                     longitude = address.longitude,
                     label = address.featureName
                         ?.takeIf { it.isNotBlank() }
                         ?: destination,
+                    subtitle = buildAddressSubtitle(address),
                 )
+            }
+            _navigationSearchResults.value = results
+
+            val selected = results.firstOrNull()
+            if (selected == null) {
+                _navigationSearchError.value = "Place not found. Try a more specific destination."
+                _navigationLocation.value = DefaultNavigationMapLocation
+                _navigationOrigin.value = null
+            } else {
+                _navigationLocation.value = selected.asMapLocation()
+                _navigationOrigin.value = runCatching { getCurrentLocation()?.toNavigationLocation() }.getOrNull()
             }
             _isNavigationSearching.value = false
         }
     }
 
-    private suspend fun geocode(query: String): Address? {
+    fun selectNavigationResult(result: NavigationSearchResult) {
+        _navigationSearchError.value = null
+        _navigationLocation.value = result.asMapLocation()
+        if (_navigationOrigin.value == null) {
+            viewModelScope.launch {
+                _navigationOrigin.value = runCatching { getCurrentLocation()?.toNavigationLocation() }.getOrNull()
+            }
+        }
+    }
+
+    fun setDriverName(name: String) {
+        viewModelScope.launch { preferences.setDriverName(name.trim().ifBlank { "Driver" }) }
+    }
+
+    fun setDriverSignedIn(signedIn: Boolean) {
+        viewModelScope.launch { preferences.setDriverSignedIn(signedIn) }
+    }
+
+    private suspend fun geocode(query: String, maxResults: Int): List<Address> {
         val geocoder = Geocoder(getApplication(), Locale.getDefault())
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             suspendCancellableCoroutine { continuation ->
                 geocoder.getFromLocationName(
                     query,
-                    1,
+                    maxResults,
                     object : Geocoder.GeocodeListener {
                         override fun onGeocode(addresses: MutableList<Address>) {
-                            if (continuation.isActive) {
-                                continuation.resume(addresses.firstOrNull())
-                            }
+                            if (continuation.isActive) continuation.resume(addresses)
                         }
 
                         override fun onError(errorMessage: String?) {
-                            if (continuation.isActive) continuation.resume(null)
+                            if (continuation.isActive) continuation.resume(emptyList())
                         }
                     },
                 )
@@ -578,10 +619,36 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             @Suppress("DEPRECATION")
             withContext(Dispatchers.IO) {
-                geocoder.getFromLocationName(query, 1)?.firstOrNull()
+                geocoder.getFromLocationName(query, maxResults).orEmpty()
             }
         }
     }
+
+    private fun buildAddressSubtitle(address: Address): String {
+        val parts = listOfNotNull(
+            address.locality,
+            address.adminArea,
+            address.countryName,
+        ).filter { it.isNotBlank() }
+        return parts.distinct().joinToString(" · ")
+    }
+
+    private fun Location.toNavigationLocation(): NavigationMapLocation =
+        NavigationMapLocation(
+            latitude = latitude,
+            longitude = longitude,
+            label = "Current position",
+        )
+
+    private fun Address.toNavigationLocation(): NavigationMapLocation =
+        NavigationMapLocation(
+            latitude = latitude,
+            longitude = longitude,
+            label = featureName?.takeIf { it.isNotBlank() } ?: getAddressLine(0) ?: "Selected destination",
+        )
+
+    private fun NavigationSearchResult.asMapLocation(): NavigationMapLocation =
+        NavigationMapLocation(latitude = latitude, longitude = longitude, label = label)
 
     // -- Settings --
     fun setThemeMode(mode: ThemeMode) {

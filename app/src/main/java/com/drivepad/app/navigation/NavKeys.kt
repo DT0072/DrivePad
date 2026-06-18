@@ -18,6 +18,14 @@ import kotlinx.serialization.Serializable
 @Serializable data object ConnectivityKey : NavKey
 @Serializable data object SettingsKey : NavKey
 
+@Serializable
+data class NavigationSearchResult(
+    val latitude: Double,
+    val longitude: Double,
+    val label: String,
+    val subtitle: String = "",
+)
+
 // Bottom nav items
 enum class BottomNavItem(
     val key: NavKey,

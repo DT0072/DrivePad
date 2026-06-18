@@ -68,6 +68,8 @@ fun DriveApp(
     val navigationLocation by viewModel.navigationLocation.collectAsStateWithLifecycle()
     val isNavigationSearching by viewModel.isNavigationSearching.collectAsStateWithLifecycle()
     val navigationSearchError by viewModel.navigationSearchError.collectAsStateWithLifecycle()
+    val navigationSearchResults by viewModel.navigationSearchResults.collectAsStateWithLifecycle()
+    val navigationOrigin by viewModel.navigationOrigin.collectAsStateWithLifecycle()
     val nowPlayingTitle by viewModel.nowPlayingTitle.collectAsStateWithLifecycle()
     val nowPlayingArtist by viewModel.nowPlayingArtist.collectAsStateWithLifecycle()
     val nowPlayingAlbum by viewModel.nowPlayingAlbum.collectAsStateWithLifecycle()
@@ -94,6 +96,8 @@ fun DriveApp(
     val autoLaunchOnPower by viewModel.autoLaunchOnPower.collectAsStateWithLifecycle()
     val autoExitOnDisconnect by viewModel.autoExitOnDisconnect.collectAsStateWithLifecycle()
     val autoLaunchOnBoot by viewModel.autoLaunchOnBoot.collectAsStateWithLifecycle()
+    val driverName by viewModel.driverName.collectAsStateWithLifecycle()
+    val driverSignedIn by viewModel.driverSignedIn.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -152,6 +156,7 @@ fun DriveApp(
                         onRadioSeekPrevious = viewModel::seekRadioBackward,
                         onRadioFrequencyChange = viewModel::setRadioFrequency,
                         onPresetLoad = viewModel::loadPreset,
+                        onPresetSave = viewModel::savePreset,
                         onNavigationSearch = viewModel::searchNavigationDestination,
                         onNavigateToScreen = { screenId ->
                             when (screenId) {
@@ -169,7 +174,10 @@ fun DriveApp(
                         location = navigationLocation,
                         isSearching = isNavigationSearching,
                         searchError = navigationSearchError,
+                        searchResults = navigationSearchResults,
+                        originLocation = navigationOrigin,
                         onSearch = viewModel::searchNavigationDestination,
+                        onSelectResult = viewModel::selectNavigationResult,
                     )
 
                     BottomNavItem.MEDIA -> AudioScreen(
@@ -223,11 +231,15 @@ fun DriveApp(
                         autoLaunchOnPower = autoLaunchOnPower,
                         autoExitOnDisconnect = autoExitOnDisconnect,
                         autoLaunchOnBoot = autoLaunchOnBoot,
+                        driverName = driverName,
+                        isDriverSignedIn = driverSignedIn,
                         onThemeModeChanged = viewModel::setThemeMode,
                         onLauncherModeChanged = viewModel::setLauncherMode,
                         onAutoLaunchOnPowerChanged = viewModel::setAutoLaunchOnPower,
                         onAutoExitOnDisconnectChanged = viewModel::setAutoExitOnDisconnect,
                         onAutoLaunchOnBootChanged = viewModel::setAutoLaunchOnBoot,
+                        onDriverNameChanged = viewModel::setDriverName,
+                        onDriverSignedInChanged = viewModel::setDriverSignedIn,
                         onReturnToLauncher = {
                             // Launch the default home launcher
                             val intent = Intent(Intent.ACTION_MAIN).apply {

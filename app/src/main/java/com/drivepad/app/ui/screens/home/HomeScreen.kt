@@ -53,6 +53,7 @@ fun HomeScreen(
     onRadioSeekPrevious: () -> Unit,
     onRadioFrequencyChange: (Float) -> Unit,
     onPresetLoad: (Int) -> Unit,
+    onPresetSave: (Int) -> Unit,
     onNavigationSearch: (String) -> Unit,
     onNavigateToScreen: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -166,6 +167,7 @@ fun HomeScreen(
                 onRadioPrevious = onRadioSeekPrevious,
                 onFrequencyChange = onRadioFrequencyChange,
                 onPresetLoad = onPresetLoad,
+                onPresetSave = onPresetSave,
                 onOpenAudio = { onNavigateToScreen("media") },
                 modifier = Modifier
                     .weight(panelWeight)
@@ -216,6 +218,7 @@ private fun ContextPanel(
     onRadioPrevious: () -> Unit,
     onFrequencyChange: (Float) -> Unit,
     onPresetLoad: (Int) -> Unit,
+    onPresetSave: (Int) -> Unit,
     onOpenAudio: () -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean,
@@ -281,22 +284,57 @@ private fun ContextPanel(
                     onPlayPause = onRadioPlayPause,
                     onNext = onRadioNext,
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilledTonalButton(
+                        onClick = { onPresetSave(0) },
+                        enabled = station != null,
+                        modifier = Modifier.weight(0.9f).height(if (compact) 44.dp else 48.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = AmberAccent.copy(alpha = 0.15f),
+                            contentColor = AmberAccent,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.Star, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Save P1")
+                    }
+                    OutlinedButton(
+                        onClick = { onPresetLoad(0) },
+                        enabled = presets.firstOrNull() != null,
+                        modifier = Modifier.weight(0.9f).height(if (compact) 44.dp else 48.dp),
+                    ) {
+                        Text("Load P1")
+                    }
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     repeat(6) { index ->
                         val preset = presets.getOrNull(index)
                         Surface(
-                            modifier = Modifier.weight(1f).height(if (compact) 50.dp else 58.dp),
-                            onClick = { if (preset != null) onPresetLoad(index) },
-                            shape = RoundedCornerShape(7.dp),
+                            modifier = Modifier.weight(1f).height(if (compact) 52.dp else 60.dp),
+                            onClick = {
+                                if (preset != null) {
+                                    onPresetLoad(index)
+                                } else if (station != null) {
+                                    onPresetSave(index)
+                                }
+                            },
+                            shape = RoundedCornerShape(8.dp),
                             color = if (preset?.stationUuid == station?.stationUuid) AmberAccent.copy(alpha = 0.12f) else DarkSurfaceVariant,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
                                 if (preset?.stationUuid == station?.stationUuid) AmberAccent else DarkDivider,
                             ),
                         ) {
-                            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            Column(
+                                Modifier.fillMaxSize().padding(vertical = 6.dp, horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
                                 Text("P${index + 1}", style = MaterialTheme.typography.labelMedium, color = if (preset != null) AmberAccent else MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (!compact) Text(preset?.getDisplayFrequency().orEmpty().ifBlank { "—" }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (!compact) Text(preset?.getDisplayFrequency().orEmpty().ifBlank { "Tap to save" }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
