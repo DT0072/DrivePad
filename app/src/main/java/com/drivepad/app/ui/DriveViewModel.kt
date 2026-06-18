@@ -30,6 +30,7 @@ import com.drivepad.app.data.preferences.DrivePreferences
 import com.drivepad.app.data.preferences.ThemeMode
 import com.drivepad.app.data.preferences.dataStore
 import com.drivepad.app.media.ExternalMediaSessionController
+import com.drivepad.app.media.MediaPlaybackModes
 import com.drivepad.app.media.ExternalMediaQueueItem
 import com.drivepad.app.media.ExternalPlaybackSnapshot
 import com.drivepad.app.media.MediaNotificationListenerService
@@ -181,6 +182,12 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
     private val _mediaVolume = MutableStateFlow(0f)
     val mediaVolume: StateFlow<Float> = _mediaVolume.asStateFlow()
 
+    private val _mediaShuffleEnabled = MutableStateFlow(false)
+    val mediaShuffleEnabled: StateFlow<Boolean> = _mediaShuffleEnabled.asStateFlow()
+
+    private val _mediaRepeatMode = MutableStateFlow(MediaPlaybackModes.REPEAT_OFF)
+    val mediaRepeatMode: StateFlow<Int> = _mediaRepeatMode.asStateFlow()
+
     private val _mediaQueue = MutableStateFlow<List<ExternalMediaQueueItem>>(emptyList())
     val mediaQueue: StateFlow<List<ExternalMediaQueueItem>> = _mediaQueue.asStateFlow()
 
@@ -320,6 +327,14 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         externalMediaController.setVolume(_mediaVolume.value)
     }
 
+    fun toggleMediaShuffle() {
+        externalMediaController.toggleShuffle()
+    }
+
+    fun toggleMediaRepeat() {
+        externalMediaController.toggleRepeat()
+    }
+
     fun refreshMediaSession() {
         externalMediaController.refresh()
     }
@@ -423,6 +438,15 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         persistRadioPresets(presets)
     }
 
+    fun removePreset(slotIndex: Int) {
+        if (slotIndex !in 0 until 6) return
+        val presets = _radioPresets.value.toMutableList()
+        if (presets.getOrNull(slotIndex) == null) return
+        presets[slotIndex] = null
+        _radioPresets.value = presets
+        persistRadioPresets(presets)
+    }
+
     fun loadPreset(slotIndex: Int) {
         val preset = _radioPresets.value.getOrNull(slotIndex) ?: return
         selectRadioStation(preset)
@@ -494,6 +518,8 @@ class DriveViewModel(application: Application) : AndroidViewModel(application) {
         _nowPlayingAlbumArt.value = snapshot.albumArt ?: snapshot.albumArtUri.ifBlank { null }
         _isPlaying.value = snapshot.isPlaying
         _mediaVolume.value = snapshot.volume
+        _mediaShuffleEnabled.value = snapshot.shuffleEnabled
+        _mediaRepeatMode.value = snapshot.repeatMode
         _mediaQueue.value = snapshot.queue
 
         mediaPositionMs = snapshot.positionMs

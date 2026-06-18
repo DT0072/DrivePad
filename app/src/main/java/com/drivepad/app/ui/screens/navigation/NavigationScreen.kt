@@ -38,7 +38,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.drivepad.app.navigation.NavigationSearchResult
 import com.drivepad.app.ui.theme.*
-import org.json.JSONObject
 import kotlin.math.*
 
 @Composable
@@ -405,17 +404,8 @@ fun InAppNavigationView(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val routeScript = remember(location, originLocation) {
-        if (originLocation == null) {
-            "window.drivePadShowLocation(" +
-                "${location.latitude},${location.longitude},${JSONObject.quote(location.label)}" +
-                ");"
-        } else {
-            "window.drivePadShowRoute(" +
-                "${originLocation.latitude},${originLocation.longitude}," +
-                "${location.latitude},${location.longitude},${JSONObject.quote(location.label)}" +
-                ");"
-        }
+    val mapUrl = remember(location, originLocation) {
+        buildGoogleMapsWebUrl(location, originLocation)
     }
     AndroidView(
         modifier = modifier,
@@ -456,14 +446,14 @@ fun InAppNavigationView(
                         callback?.invoke(origin, granted, false)
                     }
                 }
-                tag = routeScript
-                loadUrl("file:///android_asset/drivepad_map.html")
+                tag = mapUrl
+                loadUrl(mapUrl)
             }
         },
         update = { view ->
-            if (view.tag != routeScript) {
-                view.tag = routeScript
-                view.evaluateJavascript(routeScript, null)
+            if (view.tag != mapUrl) {
+                view.tag = mapUrl
+                view.loadUrl(mapUrl)
             }
         },
     )

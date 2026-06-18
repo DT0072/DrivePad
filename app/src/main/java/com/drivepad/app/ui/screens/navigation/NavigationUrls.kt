@@ -1,5 +1,6 @@
 package com.drivepad.app.ui.screens.navigation
 
+import android.net.Uri
 import java.util.Locale
 
 data class NavigationMapLocation(
@@ -46,6 +47,30 @@ internal fun buildGoogleMapsDirectionsUri(
         location.longitude,
     )
     return "https://www.google.com/maps/dir/?api=1&destination=$destination&travelmode=driving"
+}
+
+internal fun buildGoogleMapsWebUrl(
+    location: NavigationMapLocation = DefaultNavigationMapLocation,
+    originLocation: NavigationMapLocation? = null,
+): String {
+    return if (originLocation != null) {
+        val origin = String.format(
+            Locale.US,
+            "%.6f,%.6f",
+            originLocation.latitude,
+            originLocation.longitude,
+        )
+        val destination = String.format(
+            Locale.US,
+            "%.6f,%.6f",
+            location.latitude,
+            location.longitude,
+        )
+        "https://www.google.com/maps/dir/?api=1&origin=$origin&destination=$destination&travelmode=driving"
+    } else {
+        val query = Uri.encode(String.format(Locale.US, "%.6f,%.6f", location.latitude, location.longitude))
+        "https://www.google.com/maps/search/?api=1&query=$query"
+    }
 }
 
 internal fun buildWazeUri(

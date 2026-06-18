@@ -31,6 +31,8 @@ data class ExternalPlaybackSnapshot(
     val durationMs: Long = 0L,
     val playbackSpeed: Float = 1f,
     val volume: Float = 0f,
+    val shuffleEnabled: Boolean = false,
+    val repeatMode: Int = MediaPlaybackModes.REPEAT_OFF,
     val queue: List<ExternalMediaQueueItem> = emptyList(),
 )
 
@@ -48,6 +50,8 @@ class ExternalMediaSessionController(
     private var preferredPackage: String? = null
     private var activeController: MediaController? = null
     private var listenerRegistered = false
+    private var shuffleEnabled = false
+    private var repeatMode = MediaPlaybackModes.REPEAT_OFF
 
     private val activeSessionsListener =
         MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
@@ -117,11 +121,39 @@ class ExternalMediaSessionController(
     }
 
     fun skipNext() {
-        activeController?.transportControls?.skipToNext()
+        val controller = activeController ?: return
+        val queue = controller.queue.toExternalQueue()
+        val currentQueueId = controller.playbackState?.activeQueueItemId
+            ?: MediaSession.QueueItem.UNKNOWN_ID.toLong()
+        when {
+            repeatMode == MediaPlaybackModes.REPEAT_ONE && currentQueueId != MediaSession.QueueItem.UNKNOWN_ID.toLong() -> {
+                controller.transportControls.skipToQueueItem(currentQueueId)
+            }
+            shuffleEnabled && queue.isNotEmpty() -> {
+                val next = queue.randomOrNull()?.queueId
+                if (next != null) controller.transportControls.skipToQueueItem(next)
+                else controller.transportControls.skipToNext()
+            }
+            else -> controller.transportControls.skipToNext()
+        }
     }
 
     fun skipPrevious() {
-        activeController?.transportControls?.skipToPrevious()
+        val controller = activeController ?: return
+        val queue = controller.queue.toExternalQueue()
+        val currentQueueId = controller.playbackState?.activeQueueItemId
+            ?: MediaSession.QueueItem.UNKNOWN_ID.toLong()
+        when {
+            repeatMode == MediaPlaybackModes.REPEAT_ONE && currentQueueId != MediaSession.QueueItem.UNKNOWN_ID.toLong() -> {
+                controller.transportControls.skipToQueueItem(currentQueueId)
+            }
+            shuffleEnabled && queue.isNotEmpty() -> {
+                val previous = queue.randomOrNull()?.queueId
+                if (previous != null) controller.transportControls.skipToQueueItem(previous)
+                else controller.transportControls.skipToPrevious()
+            }
+            else -> controller.transportControls.skipToPrevious()
+        }
     }
 
     fun seekTo(progress: Float) {
@@ -136,6 +168,20 @@ class ExternalMediaSessionController(
 
     fun skipToQueueItem(queueId: Long) {
         activeController?.transportControls?.skipToQueueItem(queueId)
+    }
+
+    fun toggleShuffle() {
+        shuffleEnabled = !shuffleEnabled
+        publishSnapshot()
+    }
+
+    fun toggleRepeat() {
+        repeatMode = when (repeatMode) {
+            MediaPlaybackModes.REPEAT_OFF -> MediaPlaybackModes.REPEAT_ONE
+            MediaPlaybackModes.REPEAT_ONE -> MediaPlaybackModes.REPEAT_ALL
+            else -> MediaPlaybackModes.REPEAT_OFF
+        }
+        publishSnapshot()
     }
 
     fun setVolume(progress: Float) {
@@ -228,6 +274,8 @@ class ExternalMediaSessionController(
                     ?.coerceAtLeast(0L) ?: 0L,
                 playbackSpeed = state?.playbackSpeed ?: 1f,
                 volume = volume.coerceIn(0f, 1f),
+                shuffleEnabled = shuffleEnabled,
+                repeatMode = repeatMode,
                 queue = controller.queue.toExternalQueue(),
             ),
         )
