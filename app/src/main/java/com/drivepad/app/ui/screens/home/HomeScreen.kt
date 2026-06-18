@@ -8,8 +8,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,6 +69,32 @@ fun HomeScreen(
         val panelWeight = 1f - mapWeight
 
         Row(Modifier.fillMaxSize()) {
+            ContextPanel(
+                title = nowPlayingTitle,
+                artist = nowPlayingArtist,
+                albumArt = nowPlayingAlbumArt,
+                isPlaying = isPlaying,
+                station = currentStation,
+                frequency = currentFrequency,
+                isRadioPlaying = isRadioPlaying,
+                radioError = radioPlaybackError,
+                presets = radioPresets,
+                onPlayPause = onPlayPause,
+                onNext = onSkipNext,
+                onPrevious = onSkipPrevious,
+                onRadioPlayPause = onRadioPlayPause,
+                onRadioNext = onRadioSeekNext,
+                onRadioPrevious = onRadioSeekPrevious,
+                onFrequencyChange = onRadioFrequencyChange,
+                onPresetLoad = onPresetLoad,
+                onPresetSave = onPresetSave,
+                onOpenAudio = { onNavigateToScreen("media") },
+                modifier = Modifier
+                    .weight(panelWeight)
+                    .fillMaxHeight(),
+                compact = compact,
+            )
+
             Box(
                 modifier = Modifier
                     .weight(mapWeight)
@@ -148,32 +178,6 @@ fun HomeScreen(
                     }
                 }
             }
-
-            ContextPanel(
-                title = nowPlayingTitle,
-                artist = nowPlayingArtist,
-                albumArt = nowPlayingAlbumArt,
-                isPlaying = isPlaying,
-                station = currentStation,
-                frequency = currentFrequency,
-                isRadioPlaying = isRadioPlaying,
-                radioError = radioPlaybackError,
-                presets = radioPresets,
-                onPlayPause = onPlayPause,
-                onNext = onSkipNext,
-                onPrevious = onSkipPrevious,
-                onRadioPlayPause = onRadioPlayPause,
-                onRadioNext = onRadioSeekNext,
-                onRadioPrevious = onRadioSeekPrevious,
-                onFrequencyChange = onRadioFrequencyChange,
-                onPresetLoad = onPresetLoad,
-                onPresetSave = onPresetSave,
-                onOpenAudio = { onNavigateToScreen("media") },
-                modifier = Modifier
-                    .weight(panelWeight)
-                    .fillMaxHeight(),
-                compact = compact,
-            )
         }
     }
 }
@@ -227,6 +231,7 @@ private fun ContextPanel(
     val activePresets = remember(presets) {
         presets.withIndex().filter { it.value != null }
     }
+
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surface)
@@ -382,15 +387,15 @@ private fun ContextPanel(
 }
 
 @Composable
-private fun ContextTab(label: String, selected: Boolean, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 9.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(label, style = MaterialTheme.typography.titleMedium, color = if (selected) CockpitRed else MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(7.dp))
-        Box(Modifier.width(44.dp).height(2.dp).background(if (selected) CockpitRed else Color.Transparent))
-    }
+private fun ContextTab(label: String, active: Boolean, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(label) },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = if (active) ElectricBlue.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant,
+            labelColor = if (active) ElectricBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+    )
 }
 
 @Composable
@@ -402,19 +407,28 @@ private fun MediaControls(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-        IconButton(onClick = onPrevious, modifier = Modifier.size(52.dp)) { Icon(Icons.Filled.SkipPrevious, "Previous", modifier = Modifier.size(30.dp)) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onPrevious) {
+            Icon(Icons.Filled.SkipPrevious, null, tint = MaterialTheme.colorScheme.onSurface)
+        }
+        Spacer(Modifier.width(10.dp))
         Box(
-            modifier = Modifier.size(62.dp).clip(RoundedCornerShape(8.dp)).background(accent).clickable(onClick = onPlayPause),
+            modifier = Modifier
+                .size(68.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(accent),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = if (playing && stopWhenPlaying) Icons.Filled.Stop else if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = "Play or pause",
-                tint = if (accent == AmberAccent) Color.Black else Color.White,
+                contentDescription = null,
+                tint = Color.Black,
                 modifier = Modifier.size(34.dp),
             )
         }
-        IconButton(onClick = onNext, modifier = Modifier.size(52.dp)) { Icon(Icons.Filled.SkipNext, "Next", modifier = Modifier.size(30.dp)) }
+        Spacer(Modifier.width(10.dp))
+        IconButton(onClick = onNext) {
+            Icon(Icons.Filled.SkipNext, null, tint = MaterialTheme.colorScheme.onSurface)
+        }
     }
 }

@@ -53,6 +53,7 @@ fun RadioScreen(
     onStationSelect: (RadioStation) -> Unit,
     onPresetSave: (Int) -> Unit,
     onPresetLoad: (Int) -> Unit,
+    onPresetRemove: (Int) -> Unit,
     onSearch: () -> Unit,
     onAutoScan: () -> Unit,
     modifier: Modifier = Modifier
@@ -113,6 +114,17 @@ fun RadioScreen(
                             Icon(Icons.Filled.Star, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Save P1", style = MaterialTheme.typography.labelMedium)
+                        }
+                        IconButton(
+                            onClick = { onPresetRemove(0) },
+                            enabled = presets.firstOrNull() != null,
+                            modifier = Modifier.size(40.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.DeleteOutline,
+                                contentDescription = "Remove P1",
+                                tint = if (presets.firstOrNull() != null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                            )
                         }
                     }
 
@@ -311,6 +323,7 @@ fun RadioScreen(
                 currentStation = currentStation,
                 onPresetLoad = onPresetLoad,
                 onPresetSave = onPresetSave,
+                onPresetRemove = onPresetRemove,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(210.dp),
@@ -383,6 +396,7 @@ private fun FavoritePresetsPanel(
     currentStation: RadioStation?,
     onPresetLoad: (Int) -> Unit,
     onPresetSave: (Int) -> Unit,
+    onPresetRemove: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -452,6 +466,18 @@ private fun FavoritePresetsPanel(
                                     imageVector = Icons.Filled.Save,
                                     contentDescription = "Save to P${index + 1}",
                                     tint = if (currentStation != null) AmberAccent else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                            IconButton(
+                                onClick = { onPresetRemove(index) },
+                                enabled = preset != null,
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Remove preset",
+                                    tint = if (preset != null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
                                     modifier = Modifier.size(16.dp),
                                 )
                             }

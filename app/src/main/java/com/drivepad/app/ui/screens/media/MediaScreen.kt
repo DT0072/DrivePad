@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.drivepad.app.media.ExternalMediaQueueItem
+import com.drivepad.app.media.MediaPlaybackModes
 import com.drivepad.app.ui.components.GlassCard
 import com.drivepad.app.ui.theme.*
 import coil3.compose.AsyncImage
@@ -58,10 +59,14 @@ fun MediaScreen(
     playbackProgress: Float,
     currentPosition: String,
     totalDuration: String,
+    shuffleEnabled: Boolean,
+    repeatMode: Int,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
     onSeek: (Float) -> Unit,
+    onShuffleToggle: () -> Unit,
+    onRepeatToggle: () -> Unit,
     activeSource: String,
     activeMediaPackage: String,
     onSourceSelected: (String) -> Unit,
@@ -235,12 +240,6 @@ fun MediaScreen(
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.SemiBold,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Android media controls expose the current song and transport controls. Open ${source.name} to browse playlists or song lists.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (source.packageName.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(DriveDimens.spacingSm))
@@ -423,13 +422,13 @@ fun MediaScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = { /* shuffle */ },
+                        onClick = onShuffleToggle,
                         modifier = Modifier.size(DriveDimens.minTouchTarget)
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Shuffle,
                             contentDescription = "Shuffle",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (shuffleEnabled) ElectricBlue else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(DriveDimens.iconMedium)
                         )
                     }
@@ -487,20 +486,28 @@ fun MediaScreen(
                     Spacer(modifier = Modifier.width(DriveDimens.spacingLg))
 
                     IconButton(
-                        onClick = { /* repeat */ },
+                        onClick = onRepeatToggle,
                         modifier = Modifier.size(DriveDimens.minTouchTarget)
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Repeat,
+                            imageVector = when (repeatMode) {
+                                MediaPlaybackModes.REPEAT_ONE -> Icons.Filled.RepeatOne
+                                MediaPlaybackModes.REPEAT_ALL -> Icons.Filled.Repeat
+                                else -> Icons.Filled.Repeat
+                            },
                             contentDescription = "Repeat",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (repeatMode == MediaPlaybackModes.REPEAT_OFF) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                ElectricBlue
+                            },
                             modifier = Modifier.size(DriveDimens.iconMedium)
                         )
                     }
                 }
 
                 GlassCard(
-                    modifier = Modifier.fillMaxWidth(0.78f),
+                    modifier = Modifier.fillMaxWidth(0.82f),
                     padding = DriveDimens.spacingMd,
                     backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f),
                 ) {

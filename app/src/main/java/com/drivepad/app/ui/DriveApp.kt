@@ -83,6 +83,8 @@ fun DriveApp(
     val activeMediaPackage by viewModel.activeMediaPackage.collectAsStateWithLifecycle()
     val hasMediaControlAccess by viewModel.hasMediaControlAccess.collectAsStateWithLifecycle()
     val mediaVolume by viewModel.mediaVolume.collectAsStateWithLifecycle()
+    val mediaShuffleEnabled by viewModel.mediaShuffleEnabled.collectAsStateWithLifecycle()
+    val mediaRepeatMode by viewModel.mediaRepeatMode.collectAsStateWithLifecycle()
     val mediaQueue by viewModel.mediaQueue.collectAsStateWithLifecycle()
 
     val radioStations by viewModel.radioStations.collectAsStateWithLifecycle()
@@ -194,10 +196,14 @@ fun DriveApp(
                         playbackProgress = playbackProgress,
                         currentPosition = currentPosition,
                         totalDuration = totalDuration,
+                        shuffleEnabled = mediaShuffleEnabled,
+                        repeatMode = mediaRepeatMode,
                         onPlayPause = viewModel::togglePlayPause,
                         onSkipNext = viewModel::skipNext,
                         onSkipPrevious = viewModel::skipPrevious,
                         onSeek = viewModel::seekTo,
+                        onShuffleToggle = viewModel::toggleMediaShuffle,
+                        onRepeatToggle = viewModel::toggleMediaRepeat,
                         activeSource = activeMediaSource,
                         activeMediaPackage = activeMediaPackage,
                         onSourceSelected = viewModel::setActiveMediaSource,
@@ -224,6 +230,7 @@ fun DriveApp(
                         onStationSelect = viewModel::selectRadioStation,
                         onPresetSave = viewModel::savePreset,
                         onPresetLoad = viewModel::loadPreset,
+                        onPresetRemove = viewModel::removePreset,
                         onRadioSearch = { /* open search dialog */ },
                         onAutoScan = viewModel::autoScanStations
                     )
