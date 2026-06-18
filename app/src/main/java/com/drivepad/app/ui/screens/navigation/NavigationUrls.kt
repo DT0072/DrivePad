@@ -66,10 +66,10 @@ internal fun buildGoogleMapsWebUrl(
             location.latitude,
             location.longitude,
         )
-        "https://www.google.com/maps/dir/?api=1&origin=$origin&destination=$destination&travelmode=driving"
+        "https://www.google.com/maps?saddr=$origin&daddr=$destination&dirflg=d&output=embed"
     } else {
         val query = Uri.encode(String.format(Locale.US, "%.6f,%.6f", location.latitude, location.longitude))
-        "https://www.google.com/maps/search/?api=1&query=$query"
+        "https://www.google.com/maps?q=$query&z=15&output=embed"
     }
 }
 

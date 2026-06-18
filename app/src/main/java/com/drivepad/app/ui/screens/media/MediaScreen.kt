@@ -164,16 +164,6 @@ fun MediaScreen(
                 fontWeight = FontWeight.SemiBold
             )
 
-            Text(
-                text = if (activeMediaPackage.isBlank()) {
-                    "Open a player and it will appear here automatically."
-                } else {
-                    "Showing active media session"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
             visibleSources.forEach { source ->
                 val isActive = source.packageName == activeMediaPackage ||
                     (activeMediaPackage.isBlank() && source.id == activeSource)
@@ -416,8 +406,13 @@ fun MediaScreen(
             Spacer(modifier = Modifier.height(DriveDimens.spacingLg))
 
             // Playback controls
-            Column(verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingMd)) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(DriveDimens.spacingMd),
+            ) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
