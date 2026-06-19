@@ -1,7 +1,10 @@
 package com.drivepad.app.ui.screens.navigation
 
 import android.Manifest
+import android.app.Activity
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
@@ -35,8 +38,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.drivepad.app.BuildConfig
 import com.drivepad.app.navigation.NavigationSearchResult
 import com.drivepad.app.ui.theme.*
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.libraries.navigation.NavigationApi
+import com.google.android.libraries.navigation.NavigationView
+import com.google.android.libraries.navigation.Navigator
+import com.google.android.libraries.navigation.RoutingOptions
+import com.google.android.libraries.navigation.Waypoint
 import kotlin.math.*
 
 @Composable
@@ -51,12 +66,68 @@ fun NavigationScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
     var query by rememberSaveable { mutableStateOf("") }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED,
+        )
+    }
+    var navigator by remember { mutableStateOf<Navigator?>(null) }
+    var guidanceStatus by remember { mutableStateOf<String?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        hasLocationPermission = it
+    }
 
     LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (!hasLocationPermission) {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    LaunchedEffect(activity, hasLocationPermission) {
+        if (!BuildConfig.GOOGLE_NAVIGATION_ENABLED || !hasLocationPermission || activity == null) return@LaunchedEffect
+        guidanceStatus = "Preparing in-app navigation"
+        NavigationApi.getNavigator(activity, object : NavigationApi.NavigatorListener {
+            override fun onNavigatorReady(readyNavigator: Navigator) {
+                navigator = readyNavigator
+                guidanceStatus = null
+            }
+
+            override fun onError(errorCode: Int) {
+                guidanceStatus = navigationErrorMessage(errorCode)
+            }
+        })
+    }
+
+    val activeNavigator = navigator
+    DisposableEffect(activeNavigator) {
+        onDispose {
+            activeNavigator?.stopGuidance()
+            activeNavigator?.cleanup()
+        }
+    }
+
+    val startGuidance = {
+        val activeNavigator = navigator
+        if (BuildConfig.GOOGLE_NAVIGATION_ENABLED && activeNavigator != null) {
+            guidanceStatus = "Calculating route"
+            val destination = Waypoint.builder()
+                .setLatLng(location.latitude, location.longitude)
+                .setTitle(location.label)
+                .build()
+            val routingOptions = RoutingOptions().travelMode(RoutingOptions.TravelMode.DRIVING)
+            activeNavigator.setDestination(destination, routingOptions).setOnResultListener { status ->
+                if (status == Navigator.RouteStatus.OK) {
+                    activeNavigator.startGuidance()
+                    guidanceStatus = null
+                } else {
+                    guidanceStatus = routeErrorMessage(status)
+                }
+            }
+        } else if (!BuildConfig.GOOGLE_NAVIGATION_ENABLED) {
+            startGoogleNavigation(context, location)
         }
     }
 
@@ -87,7 +158,10 @@ fun NavigationScreen(
                     originLocation = originLocation,
                     searchResults = searchResults,
                     onSelectResult = onSelectResult,
-                    onStartGuidance = { startGoogleNavigation(context, location) },
+                    onStartGuidance = startGuidance,
+                    guidanceReady = !BuildConfig.GOOGLE_NAVIGATION_ENABLED || navigator != null,
+                    embeddedGuidance = BuildConfig.GOOGLE_NAVIGATION_ENABLED,
+                    guidanceStatus = guidanceStatus,
                     modifier = Modifier.weight(1f),
                     compact = true,
                 )
@@ -112,7 +186,10 @@ fun NavigationScreen(
                     originLocation = originLocation,
                     searchResults = searchResults,
                     onSelectResult = onSelectResult,
-                    onStartGuidance = { startGoogleNavigation(context, location) },
+                    onStartGuidance = startGuidance,
+                    guidanceReady = !BuildConfig.GOOGLE_NAVIGATION_ENABLED || navigator != null,
+                    embeddedGuidance = BuildConfig.GOOGLE_NAVIGATION_ENABLED,
+                    guidanceStatus = guidanceStatus,
                     modifier = Modifier.weight(0.32f),
                     compact = false,
                 )
@@ -218,6 +295,9 @@ private fun SearchPane(
     searchResults: List<NavigationSearchResult>,
     onSelectResult: (NavigationSearchResult) -> Unit,
     onStartGuidance: () -> Unit,
+    guidanceReady: Boolean,
+    embeddedGuidance: Boolean,
+    guidanceStatus: String?,
     modifier: Modifier = Modifier,
     compact: Boolean,
 ) {
@@ -238,13 +318,21 @@ private fun SearchPane(
                 Text(routeSummary(originLocation, location), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button(
                     onClick = onStartGuidance,
+                    enabled = guidanceReady,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
                     shape = RoundedCornerShape(12.dp),
                 ) {
                     Icon(Icons.Filled.Navigation, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Start guidance")
+                    Text(if (embeddedGuidance) "Start in DrivePad" else "Open Google Maps")
+                }
+                guidanceStatus?.let { status ->
+                    Text(
+                        text = status,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (guidanceReady) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }
@@ -369,6 +457,104 @@ fun InAppNavigationView(
     originLocation: NavigationMapLocation? = null,
     modifier: Modifier = Modifier,
 ) {
+    if (BuildConfig.GOOGLE_NAVIGATION_ENABLED) {
+        GoogleNavigationView(location = location, modifier = modifier)
+    } else {
+        OpenStreetMapView(location = location, originLocation = originLocation, modifier = modifier)
+    }
+}
+
+@Composable
+private fun GoogleNavigationView(
+    location: NavigationMapLocation,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val navigationView = remember(context) {
+        NavigationView(context).apply {
+            onCreate(null)
+            setNavigationUiEnabled(true)
+            setHeaderEnabled(true)
+            setEtaCardEnabled(true)
+            setRecenterButtonEnabled(true)
+            setTripProgressBarEnabled(true)
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, navigationView) {
+        var started = false
+        var resumed = false
+
+        fun moveToCurrentState() {
+            if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && !started) {
+                navigationView.onStart()
+                started = true
+            }
+            if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !resumed) {
+                navigationView.onResume()
+                resumed = true
+            }
+        }
+
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> if (!started) {
+                    navigationView.onStart()
+                    started = true
+                }
+                Lifecycle.Event.ON_RESUME -> if (!resumed) {
+                    navigationView.onResume()
+                    resumed = true
+                }
+                Lifecycle.Event.ON_PAUSE -> if (resumed) {
+                    navigationView.onPause()
+                    resumed = false
+                }
+                Lifecycle.Event.ON_STOP -> if (started) {
+                    navigationView.onStop()
+                    started = false
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        moveToCurrentState()
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            if (resumed) navigationView.onPause()
+            if (started) navigationView.onStop()
+            navigationView.onDestroy()
+        }
+    }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { navigationView },
+        update = { view ->
+            if (view.tag != location) {
+                view.tag = location
+                view.getMapAsync { map ->
+                    val destination = LatLng(location.latitude, location.longitude)
+                    map.clear()
+                    map.addMarker(MarkerOptions().position(destination).title(location.label))
+                    map.isTrafficEnabled = true
+                    map.uiSettings.isMapToolbarEnabled = false
+                    map.animateCamera(CameraUpdateFactory.newLatLngZoom(destination, 15f))
+                }
+            }
+        },
+    )
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun OpenStreetMapView(
+    location: NavigationMapLocation,
+    originLocation: NavigationMapLocation?,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val mapScript = remember(location, originLocation) {
         if (originLocation == null) {
@@ -429,6 +615,29 @@ fun InAppNavigationView(
             }
         },
     )
+}
+
+private fun navigationErrorMessage(errorCode: Int): String = when (errorCode) {
+    NavigationApi.ErrorCode.NOT_AUTHORIZED -> "Google Navigation API key is not authorized"
+    NavigationApi.ErrorCode.TERMS_NOT_ACCEPTED -> "Accept Google Navigation terms to continue"
+    NavigationApi.ErrorCode.NETWORK_ERROR -> "Google Navigation could not connect"
+    NavigationApi.ErrorCode.LOCATION_PERMISSION_MISSING -> "Location permission is required"
+    else -> "Google Navigation is unavailable"
+}
+
+private fun routeErrorMessage(status: Navigator.RouteStatus): String = when (status) {
+    Navigator.RouteStatus.NO_ROUTE_FOUND -> "No driving route was found"
+    Navigator.RouteStatus.NETWORK_ERROR -> "Route calculation could not connect"
+    Navigator.RouteStatus.QUOTA_CHECK_FAILED -> "Google Navigation quota is unavailable"
+    Navigator.RouteStatus.LOCATION_DISABLED -> "Turn on tablet location services"
+    Navigator.RouteStatus.LOCATION_UNKNOWN -> "Waiting for an accurate location"
+    else -> "Could not start this route"
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 private fun jsString(value: String): String =
