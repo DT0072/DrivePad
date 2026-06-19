@@ -2,6 +2,7 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
+    id("org.jetbrains.kotlin.android")
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
@@ -14,6 +15,15 @@ val keystoreProperties = Properties().apply {
     }
 }
 
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use(::load)
+    }
+}
+val mapsApiKey = providers.environmentVariable("MAPS_API_KEY").orNull
+    ?: localProperties.getProperty("MAPS_API_KEY").orEmpty()
+
 android {
     namespace = "com.drivepad.app"
     compileSdk = 36
@@ -21,8 +31,10 @@ android {
         applicationId = "com.drivepad.app"
         minSdk = 30
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.3.4"
+        versionCode = 9
+        versionName = "1.3.6"
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey.ifBlank { "UNCONFIGURED" }
+        buildConfigField("boolean", "GOOGLE_NAVIGATION_ENABLED", mapsApiKey.isNotBlank().toString())
     }
 
     signingConfigs {
@@ -46,6 +58,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -66,6 +79,8 @@ kotlin {
 }
 
 dependencies {
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
+
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
     androidTestImplementation(composeBom)
@@ -119,6 +134,9 @@ dependencies {
 
     // Kotlinx Serialization
     implementation(libs.kotlinx.serialization.json)
+
+    // Google-powered in-app maps and turn-by-turn guidance.
+    implementation(libs.google.navigation)
 
     // Debug tooling
     debugImplementation(libs.androidx.compose.ui.tooling)

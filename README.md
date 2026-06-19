@@ -28,8 +28,9 @@ A centralized portal designed to handle external phone projection dongles and so
 - Controls active Android media sessions for play/pause, next, previous, seeking, and volume.
 
 ### 🗺️ Smart Navigation
-- Auto-detects installed navigation engines (Google Maps, Waze, Petal Maps) and provides full-screen mapping experiences.
-- Quick-action buttons to instantly route to "Home", "Work", or "Nearby Gas Stations" via geo-intents.
+- Embeds Google Navigation SDK maps and turn-by-turn guidance directly inside DrivePad when a Google Maps Platform key is configured.
+- Retains the built-in OpenStreetMap map and Google Maps handoff when Google Navigation is not configured.
+- Supports destination search, route selection, traffic display, and quick actions for Home, Work, and nearby fuel.
 
 ### ⚡ Vehicle Automation Settings
 - **Power Trigger**: Utilizes `PowerConnectionReceiver` to automatically launch DrivePad the moment the tablet receives power from the vehicle's ignition/USB port, and optionally minimize when power is cut.
@@ -53,3 +54,13 @@ A centralized portal designed to handle external phone projection dongles and so
    ```
 4. **Optional**: To use DrivePad as your persistent dashboard, navigate to `Settings -> Launcher Mode` within the app, then press your tablet's home button and select DrivePad as the default Home app.
 5. Open the Media screen and tap **Enable media access** once. Android requires notification-listener access before DrivePad can read and control playback from YouTube Music, Spotify, or Huawei Music.
+
+## Google Navigation setup
+
+Google requires a billing-enabled Cloud project and an API key authorized for **Navigation SDK for Android**. Restrict the key to the `com.drivepad.app` Android application and its release signing certificate, then add it to the ignored `local.properties` file:
+
+```properties
+MAPS_API_KEY=your_google_maps_platform_key
+```
+
+The key is injected into the APK at build time and is never committed to Git. Builds without the key continue to use DrivePad's OpenStreetMap fallback and open Google Maps externally for live guidance.
